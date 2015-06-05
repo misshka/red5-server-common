@@ -535,6 +535,9 @@ public class FileConsumer implements Constants, IPushableConsumer, IPipeConnecti
 		// empty the queue
 		for (QueuedData queued : slice) {
 			int tmpTs = queued.getTimestamp();
+			if (log.isTraceEnabled()) {
+				log.trace("Current timestamp {}, data type {}", tmpTs, queued.getDataType());
+			}
 			if (lastWrittenTs <= tmpTs) {
 				if (queued.hasData()) {
 					// write the data
@@ -549,6 +552,8 @@ public class FileConsumer implements Constants, IPushableConsumer, IPipeConnecti
 				}
 			} else {
 				// clear the data, since its too old
+				log.error("Current timestamp {} less last written timestamp {}. See in code!", tmpTs, lastWrittenTs);
+				// TODO We should writes all slices may be? Even if they are in wrong order ffmpeg and red5 play such files properly
 				queued.dispose();
 			}
 		}
