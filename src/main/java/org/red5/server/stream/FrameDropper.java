@@ -18,6 +18,9 @@
 
 package org.red5.server.stream;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.red5.server.net.rtmp.event.AudioData;
 import org.red5.server.net.rtmp.event.IRTMPEvent;
 import org.red5.server.net.rtmp.event.VideoData;
 import org.red5.server.net.rtmp.event.VideoData.FrameType;
@@ -26,7 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * State machine for video frame dropping in live streams.
+ * State machine for frame dropping in live streams.
  * <p>
  * We start sending all frame types. Disposable interframes can be dropped any
  * time without affecting the current state. If a regular interframe is dropped,
@@ -48,16 +51,37 @@ import org.slf4j.LoggerFactory;
  *
  * @author The Red5 Project
  * @author Joachim Bauch (jojo@struktur.de)
+ * @author Sergey Tolkunov
  */
-public class VideoFrameDropper implements IFrameDropper {
+public class FrameDropper implements IFrameDropper {
 
-	protected static Logger log = LoggerFactory.getLogger(VideoFrameDropper.class.getName());
+	protected static Logger log = LoggerFactory.getLogger(FrameDropper.class.getName());
 
 	/** Current state. */
 	private int state;
 
+	/**
+	 * Index of the buffered interframe to send instead of current frame.
+	 */
+	private final AtomicInteger bufferedInterframeIdx = new AtomicInteger(-1);
+
+	/**
+	 * Timestamp of last dropped frame.
+	 */
+	private int lastDropTimestamp;
+
+	/**
+	 * Timestamp of last packet in source stream.
+	 */
+    private int streamLastTS;
+
+	/**
+	 * FIXME add description
+	 */
+	private int droppedGapDuration;
+
 	/** Constructs a new VideoFrameDropper. */
-	public VideoFrameDropper() {
+	public FrameDropper() {
 		reset();
 	}
 
@@ -68,6 +92,11 @@ public class VideoFrameDropper implements IFrameDropper {
 
 	/** {@inheritDoc} */
 	public void reset(int state) {
+		if (state == SEND_BUFFERED_INTERFRAMES) {
+			bufferedInterframeIdx.set(0);
+		} else {
+			bufferedInterframeIdx.set(-1);
+		}
 		this.state = state;
 	}
 
@@ -109,9 +138,34 @@ public class VideoFrameDropper implements IFrameDropper {
 						state = SEND_INTERFRAMES;
 					}
 					break;
+				case SEND_BUFFERED_INTERFRAMES:
+					result = (pending == 0);
+					break;
+				case SEND_BUFFERED_KEYFRAME:
+					result = (pending == 0);
+					break;
 				default:
 			}
 		}
+		if (packet instanceof AudioData) {
+			switch (state) {
+				case SEND_ALL:
+					//go through
+				case SEND_INTERFRAMES:
+					// All packets will be sent
+					break;
+				case SEND_KEYFRAMES:
+					//go through
+				case SEND_KEYFRAMES_CHECK:
+					result = false;
+					break;
+				default:
+			}
+		}
+        if (result && state != SEND_BUFFERED_INTERFRAMES &&
+                hasDroppedPackets()) {
+            lastDropTimestamp = 0;
+        }
 		return result;
 	}
 
@@ -122,6 +176,7 @@ public class VideoFrameDropper implements IFrameDropper {
 		if (packet instanceof VideoData) {
 			VideoData video = (VideoData) packet;
 			FrameType type = video.getFrameType();
+			lastDropTimestamp = streamLastTS;
 			switch (state) {
 				case SEND_ALL:
 					if (type == FrameType.DISPOSABLE_INTERFRAME) {
@@ -162,11 +217,55 @@ public class VideoFrameDropper implements IFrameDropper {
 				default:
 			}
 		}
+        skipPacket(message);
 	}
 
 	/** {@inheritDoc} */
 	public void sendPacket(RTMPMessage message) {
-
+		streamLastTS = message.getBody().getTimestamp();
 	}
 
+	/** {@inheritDoc} */
+	public void skipPacket(RTMPMessage message) {
+		if (streamLastTS > 0) {
+			droppedGapDuration += message.getBody().getTimestamp() - streamLastTS;
+		}
+		streamLastTS = message.getBody().getTimestamp();
+	}
+
+	/** {@inheritDoc} */
+	public int getDroppedGapDuration() {
+		return droppedGapDuration;
+	}
+
+	/** {@inheritDoc} */
+	public int getState() {
+		return this.state;
+	}
+
+	/** {@inheritDoc} */
+	public int getBufferedInterframeIdx() {
+		return bufferedInterframeIdx.get();
+	}
+	
+	/** {@inheritDoc} */
+	public int getAndIncrementBufferedInterframeIdx() {
+		return bufferedInterframeIdx.getAndIncrement();
+	}
+	
+	/** {@inheritDoc} */
+	public int getLastDropTimestamp() {
+		return lastDropTimestamp;
+	}
+	
+	/** {@inheritDoc} */
+	public void updateLastDropTimestamp(int timestamp) {
+		lastDropTimestamp = timestamp;
+	}
+	
+	/** {@inheritDoc} */
+	public boolean hasDroppedPackets() {
+		return lastDropTimestamp > 0;
+	}
+	
 }
