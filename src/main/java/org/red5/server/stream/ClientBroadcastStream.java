@@ -303,7 +303,7 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
 							videoStreamCodec = codecInfo.getVideoCodec();
 						}
 						if (videoStreamCodec != null) {
-							videoStreamCodec.addData(buf.asReadOnlyBuffer());
+							videoStreamCodec.addData(buf.asReadOnlyBuffer(), rtmpEvent.getTimestamp());
 						}
 						if (info != null) {
 							info.setHasVideo(true);
