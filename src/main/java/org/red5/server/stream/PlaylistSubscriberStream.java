@@ -192,7 +192,7 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
 
 				engine = new PlayEngine.Builder(this, schedulingService, consumerService, providerService).build();
 			} else {
-				log.info("Scope was null on start");
+				throw new IllegalStateException("Scope was null on start playing");
 			}
 		}
 		//set buffer check interval
