@@ -1416,7 +1416,8 @@ public abstract class RTMPConnection extends BaseConnection implements IStreamCa
 
 	/**
 	 * Difference between when the last ping was sent and when the last pong was received.
-	 * @return
+	 * 
+	 * @return last interval of ping minus pong
 	 */
 	public int getLastPingSentAndLastPongReceivedInterval() {
 	       return (int) (lastPingSentOn.get() - lastPongReceivedOn.get());
