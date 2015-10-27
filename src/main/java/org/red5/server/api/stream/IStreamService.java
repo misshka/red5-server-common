@@ -33,30 +33,46 @@ public interface IStreamService extends IScopeService {
 	 * 
 	 * @return     ID of created stream
 	 */
-	public int createStream();
+	public Number createStream();
 
+	/**
+	 * Create a stream and return a corresponding id.
+	 * 
+	 * @param streamId  Stream id
+	 * @return     ID of created stream
+	 */
+	public Number createStream(Number streamId);	
+	
 	/**
 	 * Close the stream but not deallocate the resources.
 	 * 
 	 * @param connection Connection
 	 * @param streamId  Stream id
 	 */
-	public void closeStream(IConnection connection, int streamId);
+	public void closeStream(IConnection connection, Number streamId);
 
 	/**
 	 * Close the stream if not been closed.
 	 * Deallocate the related resources.
 	 * @param streamId          Stream id
 	 */
-	public void deleteStream(int streamId);
+	public void deleteStream(Number streamId);
 
 	/**
 	 * Called by FMS.
 	 * 
 	 * @param streamId          Stream id
 	 */
-	public void initStream(int streamId);
+	public void initStream(Number streamId);
 
+	/**
+	 * Called by FMS.
+	 * 
+	 * @param streamId          Stream id
+	 * @param idk	I dont know what this is yet
+	 */
+	public void initStream(Number streamId, Object idk);
+	
 	/**
 	 * Called by FME.
 	 * 
@@ -69,7 +85,7 @@ public interface IStreamService extends IScopeService {
 	 * @param conn            Stream capable connection
 	 * @param streamId        Stream id
 	 */
-	public void deleteStream(IStreamCapableConnection conn, int streamId);
+	public void deleteStream(IStreamCapableConnection conn, Number streamId);
 
 	/**
 	 * Play stream without initial stop
