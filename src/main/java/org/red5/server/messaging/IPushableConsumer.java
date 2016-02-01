@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,14 +27,17 @@ import java.io.IOException;
  * @author Steven Gong (steven.gong@gmail.com)
  */
 public interface IPushableConsumer extends IConsumer {
-	public static final String KEY = IPushableConsumer.class.getName();
+    public static final String KEY = IPushableConsumer.class.getName();
 
     /**
      * Pushes message through pipe
      *
-     * @param pipe         Pipe
-     * @param message      Message
-     * @throws IOException if message could not be written
+     * @param pipe
+     *            Pipe
+     * @param message
+     *            Message
+     * @throws IOException
+     *             if message could not be written
      */
     void pushMessage(IPipe pipe, IMessage message) throws IOException;
 }

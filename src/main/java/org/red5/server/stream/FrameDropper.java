@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,8 +57,8 @@ public class FrameDropper implements IFrameDropper {
 
 	protected static Logger log = LoggerFactory.getLogger(FrameDropper.class.getName());
 
-	/** Current state. */
-	private int state;
+    /** Current state. */
+    private int state;
 
 	/**
 	 * Index of the buffered interframe to send instead of current frame.
@@ -85,10 +85,10 @@ public class FrameDropper implements IFrameDropper {
 		reset();
 	}
 
-	/** {@inheritDoc} */
-	public void reset() {
-		reset(SEND_ALL);
-	}
+    /** {@inheritDoc} */
+    public void reset() {
+        reset(SEND_ALL);
+    }
 
 	/** {@inheritDoc} */
 	public void reset(int state) {
@@ -238,7 +238,7 @@ public class FrameDropper implements IFrameDropper {
 		return droppedGapDuration;
 	}
 
-	/** {@inheritDoc} */
+    /** {@inheritDoc} */
 	public int getState() {
 		return this.state;
 	}

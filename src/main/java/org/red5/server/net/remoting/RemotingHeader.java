@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,46 +28,49 @@ import org.red5.server.api.remoting.IRemotingHeader;
  */
 public class RemotingHeader implements IRemotingHeader {
 
-	/**
-	 * The name of the header.
-	 */
-	protected String name;
+    /**
+     * The name of the header.
+     */
+    protected String name;
 
-	/**
-	 * Is this header required?
-	 */
-	protected boolean required;
+    /**
+     * Is this header required?
+     */
+    protected boolean required;
 
-	/**
-	 * The actual data of the header.
-	 */
-	protected Object data;
+    /**
+     * The actual data of the header.
+     */
+    protected Object data;
 
-	/**
-	 * Create a new header to be sent through remoting.
-	 * 
-	 * @param name            Header name
-	 * @param required        Header required?
-	 * @param data            Header data
-	 */
-	public RemotingHeader(String name, boolean required, Object data) {
-		this.name = name;
-		this.required = required;
-		this.data = data;
-	}
+    /**
+     * Create a new header to be sent through remoting.
+     * 
+     * @param name
+     *            Header name
+     * @param required
+     *            Header required?
+     * @param data
+     *            Header data
+     */
+    public RemotingHeader(String name, boolean required, Object data) {
+        this.name = name;
+        this.required = required;
+        this.data = data;
+    }
 
-	/** {@inheritDoc} */
-	public boolean getMustUnderstand() {
-		return required;
-	}
+    /** {@inheritDoc} */
+    public boolean getMustUnderstand() {
+        return required;
+    }
 
-	/** {@inheritDoc} */
-	public String getName() {
-		return name;
-	}
+    /** {@inheritDoc} */
+    public String getName() {
+        return name;
+    }
 
-	/** {@inheritDoc} */
-	public Object getValue() {
-		return data;
-	}
+    /** {@inheritDoc} */
+    public Object getValue() {
+        return data;
+    }
 }

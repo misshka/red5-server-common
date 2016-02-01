@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,7 @@
 package org.red5.server.api.service;
 
 /**
- * Callback that will be executed when the result of a pending service call
- * has been received.
+ * Callback that will be executed when the result of a pending service call has been received.
  * 
  * @author The Red5 Project
  * @author Joachim Bauch (jojo@struktur.de)
@@ -28,11 +27,12 @@ package org.red5.server.api.service;
  */
 public interface IPendingServiceCallback {
 
-	/**
-	 * Triggered when results are recieved
-	 * 
-	 * @param call Call object this callback is applied to
-	 */
-	public void resultReceived(IPendingServiceCall call);
+    /**
+     * Triggered when results are recieved
+     * 
+     * @param call
+     *            Call object this callback is applied to
+     */
+    public void resultReceived(IPendingServiceCall call);
 
 }

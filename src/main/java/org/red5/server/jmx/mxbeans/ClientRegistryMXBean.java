@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,14 +34,14 @@ import org.red5.server.exception.ClientNotFoundException;
 @MXBean
 public interface ClientRegistryMXBean {
 
-	public String nextId();
+    public String nextId();
 
-	public String previousId();
+    public String previousId();
 
-	public boolean hasClient(String id);
+    public boolean hasClient(String id);
 
-	public List<Client> getClientList();
+    public List<Client> getClientList();
 
-	public Client getClient(String id) throws ClientNotFoundException;
+    public Client getClient(String id) throws ClientNotFoundException;
 
 }

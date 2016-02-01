@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,10 @@ package org.red5.server.exception;
  */
 public class ScopeException extends RuntimeException {
 
-	private static final long serialVersionUID = -8512088658139011L;
+    private static final long serialVersionUID = -8512088658139011L;
 
-	public ScopeException(String string) {
-		super(string);
-	}
+    public ScopeException(String string) {
+        super(string);
+    }
 
 }

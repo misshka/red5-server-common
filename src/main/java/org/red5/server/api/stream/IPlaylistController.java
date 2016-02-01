@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,28 +25,25 @@ package org.red5.server.api.stream;
  * @author Steven Gong (steven.gong@gmail.com)
  */
 public interface IPlaylistController {
-	/**
-	 * Get next item to play.
-	 * 
-	 * @param playlist
-	 *            The related play list.
-	 * @param itemIndex
-	 *            The current item index. <tt>-1</tt> indicates to retrieve
-	 *            the first item for play.
-	 * @return The next item index to play. <tt>-1</tt> reaches the end.
-	 */
-	int nextItem(IPlaylist playlist, int itemIndex);
+    /**
+     * Get next item to play.
+     * 
+     * @param playlist
+     *            The related play list.
+     * @param itemIndex
+     *            The current item index. <tt>-1</tt> indicates to retrieve the first item for play.
+     * @return The next item index to play. <tt>-1</tt> reaches the end.
+     */
+    int nextItem(IPlaylist playlist, int itemIndex);
 
-	/**
-	 * Get previous item to play.
-	 * 
-	 * @param playlist
-	 *            The related play list.
-	 * @param itemIndex
-	 *            The current item index. <tt>IPlaylist.itemSize</tt>
-	 *            indicated to retrieve the last item for play.
-	 * @return The previous item index to play. <tt>-1</tt> reaches the
-	 *         beginning.
-	 */
-	int previousItem(IPlaylist playlist, int itemIndex);
+    /**
+     * Get previous item to play.
+     * 
+     * @param playlist
+     *            The related play list.
+     * @param itemIndex
+     *            The current item index. <tt>IPlaylist.itemSize</tt> indicated to retrieve the last item for play.
+     * @return The previous item index to play. <tt>-1</tt> reaches the beginning.
+     */
+    int previousItem(IPlaylist playlist, int itemIndex);
 }

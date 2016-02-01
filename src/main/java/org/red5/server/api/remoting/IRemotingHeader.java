@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,41 +26,40 @@ package org.red5.server.api.remoting;
  */
 public interface IRemotingHeader {
 
-	/** Name of header specifying string to add to gateway url. */
-	public static final String APPEND_TO_GATEWAY_URL = "AppendToGatewayUrl";
+    /** Name of header specifying string to add to gateway url. */
+    public static final String APPEND_TO_GATEWAY_URL = "AppendToGatewayUrl";
 
-	/** Name of header specifying new gateway url to use. */
-	public static final String REPLACE_GATEWAY_URL = "ReplaceGatewayUrl";
+    /** Name of header specifying new gateway url to use. */
+    public static final String REPLACE_GATEWAY_URL = "ReplaceGatewayUrl";
 
-	/** Name of header specifying new header to send. */
-	public static final String PERSISTENT_HEADER = "RequestPersistentHeader";
+    /** Name of header specifying new header to send. */
+    public static final String PERSISTENT_HEADER = "RequestPersistentHeader";
 
-	/** Name of header containing authentication data. */
-	public static final String CREDENTIALS = "Credentials";
+    /** Name of header containing authentication data. */
+    public static final String CREDENTIALS = "Credentials";
 
-	/** Name of header to request debug informations from the server. */
-	public static final String DEBUG_SERVER = "amf_server_debug";
-	
-	/**
-	 * Return name of header.
-	 * 
-	 * @return name of header
-	 */
-	public String getName();
-	
-	/**
-	 * Return value of header.
-	 * 
-	 * @return value of header
-	 */
-	public Object getValue();
-	
-	/**
-	 * Return boolean flag if receiver must process header before handling
-	 * other headers or messages.
-	 * 
-	 * @return must understand
-	 */
-	public boolean getMustUnderstand();
+    /** Name of header to request debug informations from the server. */
+    public static final String DEBUG_SERVER = "amf_server_debug";
+
+    /**
+     * Return name of header.
+     * 
+     * @return name of header
+     */
+    public String getName();
+
+    /**
+     * Return value of header.
+     * 
+     * @return value of header
+     */
+    public Object getValue();
+
+    /**
+     * Return boolean flag if receiver must process header before handling other headers or messages.
+     * 
+     * @return must understand
+     */
+    public boolean getMustUnderstand();
 
 }

@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,21 +28,22 @@ import org.apache.mina.core.buffer.IoBuffer;
  */
 public class FlexStreamSend extends Notify {
 
-	private static final long serialVersionUID = -4226252245996614504L;
+    private static final long serialVersionUID = -4226252245996614504L;
 
-	public FlexStreamSend() {
-		super();
-		dataType = TYPE_FLEX_STREAM_SEND;
-	}
+    public FlexStreamSend() {
+        super();
+        dataType = TYPE_FLEX_STREAM_SEND;
+    }
 
-	/**
-	 * Create new stream send object.
-	 * 
-	 * @param data data
-	 */
-	public FlexStreamSend(IoBuffer data) {
-		super(data);
-		dataType = TYPE_FLEX_STREAM_SEND;
-	}
+    /**
+     * Create new stream send object.
+     * 
+     * @param data
+     *            data
+     */
+    public FlexStreamSend(IoBuffer data) {
+        super(data);
+        dataType = TYPE_FLEX_STREAM_SEND;
+    }
 
 }

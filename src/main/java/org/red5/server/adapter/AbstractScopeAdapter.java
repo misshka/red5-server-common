@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,157 +33,270 @@ import org.red5.server.api.service.IServiceCall;
  * Base scope handler implementation. Meant to be subclassed.
  */
 public abstract class AbstractScopeAdapter implements IScopeHandler {
-	
-	//private static Logger log = LoggerFactory.getLogger(AbstractScopeAdapter.class);
-	
-	/**
-	 * Can start flag.
-	 * <pre>true</pre> if scope is ready to be activated, <pre>false</pre> otherwise
-	 */
-	private boolean canStart = true;
 
-	/**
-	 * Can connect flag.
-	 * <pre>true</pre> if connections to scope are allowed, <pre>false</pre> otherwise
-	 */
-	private boolean canConnect;
+    //private static Logger log = LoggerFactory.getLogger(AbstractScopeAdapter.class);
 
-	/**
-	 * Can join flag.
-	 * <pre>true</pre> if scope may be joined by users, <pre>false</pre> otherwise
-	 */
-	private boolean canJoin = true;
+    /**
+     * Can start flag.
+     * 
+     * <code>
+     * true
+     * </code>
+     * 
+     * if scope is ready to be activated,
+     * 
+     * <code>
+     * false
+     * </code>
+     * 
+     * otherwise
+     */
+    private boolean canStart = true;
 
-	/**
-	 * Can call service flag.
-	 * <pre>true</pre> if remote service calls are allowed for the scope, <pre>false</pre> otherwise
-	 */
-	private boolean canCallService = true;
+    /**
+     * Can connect flag.
+     * 
+     * <code>
+     * true
+     * </code>
+     * 
+     * if connections to scope are allowed,
+     * 
+     * <code>
+     * false
+     * </code>
+     * 
+     * otherwise
+     */
+    private boolean canConnect;
 
-	/**
-	 * Can add child scope flag. <pre>true</pre> if scope is allowed to add child scopes, <pre>false</pre> otherwise
-	 */
-	private boolean canAddChildScope = true;
+    /**
+     * Can join flag.
+     * 
+     * <code>
+     * true
+     * </code>
+     * 
+     * if scope may be joined by users,
+     * 
+     * <code>
+     * false
+     * </code>
+     * 
+     * otherwise
+     */
+    private boolean canJoin = true;
 
-	/**
-	 * Can handle event flag.
-	 * <pre>true</pre> if events handling is allowed, <pre>false</pre> otherwise
-	 */
-	private boolean canHandleEvent = true;
+    /**
+     * Can call service flag.
+     * 
+     * <code>
+     * true
+     * </code>
+     * 
+     * if remote service calls are allowed for the scope,
+     * 
+     * <code>
+     * false
+     * </code>
+     * 
+     * otherwise
+     */
+    private boolean canCallService = true;
 
-	/**
-	 * Setter for can start flag.
-	 *
-	 * @param canStart  <pre>true</pre> if scope is ready to be activated, <pre>false</pre> otherwise
-	 */
-	public void setCanStart(boolean canStart) {
-		this.canStart = canStart;
-	}
+    /**
+     * Can add child scope flag.
+     * 
+     * <code>
+     * true
+     * </code>
+     * 
+     * if scope is allowed to add child scopes,
+     * 
+     * <code>
+     * false
+     * </code>
+     * 
+     * otherwise
+     */
+    private boolean canAddChildScope = true;
 
-	/**
-	 * Setter for can call service flag
-	 *
-	 * @param canCallService <pre>true</pre> if remote service calls are allowed for the scope, <pre>false</pre> otherwise
-	 */
-	public void setCanCallService(boolean canCallService) {
-		//log.trace("setCanCallService: {}", canCallService);
-		this.canCallService = canCallService;
-	}
+    /**
+     * Can handle event flag.
+     * 
+     * <code>
+     * true
+     * </code>
+     * 
+     * if events handling is allowed,
+     * 
+     * <code>
+     * false
+     * </code>
+     * 
+     * otherwise
+     */
+    private boolean canHandleEvent = true;
 
-	/**
-	 * Setter for can connect flag
-	 *
-	 * @param canConnect <pre>true</pre> if connections to scope are allowed, <pre>false</pre> otherwise
-	 */
-	public void setCanConnect(boolean canConnect) {
-		this.canConnect = canConnect;
-	}
+    /**
+     * Setter for can start flag.
+     *
+     * @param canStart
+     *            <code>
+     * true
+     * </code>
+     * 
+     *            if scope is ready to be activated,
+     * 
+     *            <code>
+     * false
+     * </code>
+     * 
+     *            otherwise
+     */
+    public void setCanStart(boolean canStart) {
+        this.canStart = canStart;
+    }
 
-	/**
-	 * Setter for 'can join' flag
-	 *
-	 * @param canJoin <pre>true</pre> if scope may be joined by users, <pre>false</pre> otherwise
-	 */
-	public void setJoin(boolean canJoin) {
-		this.canJoin = canJoin;
-	}
+    /**
+     * Setter for can call service flag
+     *
+     * @param canCallService
+     *            <code>
+     * true
+     * </code>
+     * 
+     *            if remote service calls are allowed for the scope,
+     * 
+     *            <code>
+     * false
+     * </code>
+     * 
+     *            otherwise
+     */
+    public void setCanCallService(boolean canCallService) {
+        //log.trace("setCanCallService: {}", canCallService);
+        this.canCallService = canCallService;
+    }
 
-	/** {@inheritDoc} */
-	public boolean start(IScope scope) {
-		return canStart;
-	}
+    /**
+     * Setter for can connect flag
+     *
+     * @param canConnect
+     *            <code>
+     * true
+     * </code>
+     * 
+     *            if connections to scope are allowed,
+     * 
+     *            <code>
+     * false
+     * </code>
+     * 
+     *            otherwise
+     */
+    public void setCanConnect(boolean canConnect) {
+        this.canConnect = canConnect;
+    }
 
-	/** {@inheritDoc} */
-	public void stop(IScope scope) {
-		// nothing
-	}
+    /**
+     * Setter for 'can join' flag
+     *
+     * @param canJoin
+     *            <code>
+     * true
+     * </code>
+     * 
+     *            if scope may be joined by users,
+     * 
+     *            <code>
+     * false
+     * </code>
+     * 
+     *            otherwise
+     */
+    public void setJoin(boolean canJoin) {
+        this.canJoin = canJoin;
+    }
 
-	/** {@inheritDoc} */
-	public boolean connect(IConnection conn, IScope scope, Object[] params) {
-		return canConnect;
-	}
+    /** {@inheritDoc} */
+    public boolean start(IScope scope) {
+        return canStart;
+    }
 
-	/** {@inheritDoc} */
-	public void disconnect(IConnection conn, IScope scope) {
-		// nothing
-	}
+    /** {@inheritDoc} */
+    public void stop(IScope scope) {
+        // nothing
+    }
 
-	/** {@inheritDoc} */
-	public boolean join(IClient client, IScope scope) {
-		return canJoin;
-	}
+    /** {@inheritDoc} */
+    public boolean connect(IConnection conn, IScope scope, Object[] params) {
+        return canConnect;
+    }
 
-	/** {@inheritDoc} */
-	public void leave(IClient client, IScope scope) {
-		// nothing
-	}
+    /** {@inheritDoc} */
+    public void disconnect(IConnection conn, IScope scope) {
+        // nothing
+    }
 
-	/** {@inheritDoc} */
-	public boolean serviceCall(IConnection conn, IServiceCall call) {
-		//log.trace("serviceCall - canCallService: {} scope: {} method: {}", canCallService, conn.getScope().getName(), call.getServiceMethodName());
-		return canCallService;
-	}
+    /** {@inheritDoc} */
+    public boolean join(IClient client, IScope scope) {
+        return canJoin;
+    }
 
-	/** {@inheritDoc} */
-	public boolean addChildScope(IBasicScope scope) {
-		return canAddChildScope;
-	}
+    /** {@inheritDoc} */
+    public void leave(IClient client, IScope scope) {
+        // nothing
+    }
 
-	/** {@inheritDoc} */
-	public void removeChildScope(IBasicScope scope) {
-	}
+    /** {@inheritDoc} */
+    public boolean serviceCall(IConnection conn, IServiceCall call) {
+        //log.trace("serviceCall - canCallService: {} scope: {} method: {}", canCallService, conn.getScope().getName(), call.getServiceMethodName());
+        return canCallService;
+    }
 
-	/** {@inheritDoc} */
-	public boolean handleEvent(IEvent event) {
-		return canHandleEvent;
-	}
+    /** {@inheritDoc} */
+    public boolean addChildScope(IBasicScope scope) {
+        return canAddChildScope;
+    }
 
-	/**
-	 * Calls the checkBandwidth method on the current client.
-	 * 
-	 * @param o Object passed from Flash, not used at the moment 
-	 */
-	public void checkBandwidth(Object o) {
-		//Incoming object should be null
-		IClient client = Red5.getConnectionLocal().getClient();
-		if (client != null) {
-			client.checkBandwidth();
-		}
-	}
+    /** {@inheritDoc} */
+    public void removeChildScope(IBasicScope scope) {
+    }
 
-	/**
-	 * Calls the checkBandwidthUp method on the current client.
-	 * 
-	 * @param params Object passed from Flash
-	 * @return bandwidth results map
-	 */
-	public Map<String, Object> checkBandwidthUp(Object[] params) {
-		//Incoming object should be null
-		IClient client = Red5.getConnectionLocal().getClient();
-		if (client != null) {
-			return client.checkBandwidthUp(params);
-		}
-		return null;
-	}
+    /** {@inheritDoc} */
+    public boolean handleEvent(IEvent event) {
+        return canHandleEvent;
+    }
+
+    /**
+     * Calls the checkBandwidth method on the current client.
+     * 
+     * @param o
+     *            Object passed from Flash, not used at the moment
+     */
+    public void checkBandwidth(Object o) {
+        //Incoming object should be null
+        IClient client = Red5.getConnectionLocal().getClient();
+        if (client != null) {
+            client.checkBandwidth();
+        }
+    }
+
+    /**
+     * Calls the checkBandwidthUp method on the current client.
+     * 
+     * @param params
+     *            Object passed from Flash
+     * @return bandwidth results map
+     */
+    public Map<String, Object> checkBandwidthUp(Object[] params) {
+        //Incoming object should be null
+        IClient client = Red5.getConnectionLocal().getClient();
+        if (client != null) {
+            return client.checkBandwidthUp(params);
+        }
+        return null;
+    }
 
 }

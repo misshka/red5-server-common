@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,19 +18,16 @@
 package org.red5.server.api.scope;
 
 /**
- * Base marker interface for all scope services. Used by the ScopeUtils to lookup
- * services defined as beans in Spring application context. A scope service usually can perform various
- * tasks on a scope like managing shared objects, streams, etc.
+ * Base marker interface for all scope services. Used by the ScopeUtils to lookup services defined as beans in Spring application context. A scope service usually can perform various tasks on a scope like managing shared objects, streams, etc.
  * 
  * @author The Red5 Project
  * @author Joachim Bauch (bauch@struktur.de)
  */
 public interface IScopeService {
 
-	/** 
-	 * Name of a bean defining that scope service. Override in
-	 * subinterfaces.
-	 * */
-	public static String BEAN_NAME = null;
+    /**
+     * Name of a bean defining that scope service. Override in subinterfaces.
+     * */
+    public static String BEAN_NAME = null;
 
 }

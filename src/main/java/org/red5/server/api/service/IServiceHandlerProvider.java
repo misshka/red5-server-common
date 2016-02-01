@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,40 +28,58 @@ import java.util.Set;
  */
 public interface IServiceHandlerProvider {
 
-	/**
-	 * Register an object that provides methods which can be called from a client.
-	 * <br>
-	 * Example:
-	 * <br>
-	 * If you registered a handler with the name "<pre>one.two</pre>" that
-	 * provides a method "<pre>callMe</pre>", you can call a method
-	 * "<pre>one.two.callMe</pre>" from the client.
-	 * 
-	 * @param name the name of the handler
-	 * @param handler the handler object
-	 */
-	public void registerServiceHandler(String name, Object handler);
+    /**
+     * Register an object that provides methods which can be called from a client. <br>
+     * Example: <br>
+     * If you registered a handler with the name "
+     * 
+     * <pre>
+     * one.two
+     * </pre>
+     * 
+     * " that provides a method "
+     * 
+     * <pre>
+     * callMe
+     * </pre>
+     * 
+     * ", you can call a method "
+     * 
+     * <pre>
+     * one.two.callMe
+     * </pre>
+     * 
+     * " from the client.
+     * 
+     * @param name
+     *            the name of the handler
+     * @param handler
+     *            the handler object
+     */
+    public void registerServiceHandler(String name, Object handler);
 
-	/**
-	 * Unregister service handler.
-	 * 
-	 * @param name the name of the handler
-	 */
-	public void unregisterServiceHandler(String name);
+    /**
+     * Unregister service handler.
+     * 
+     * @param name
+     *            the name of the handler
+     */
+    public void unregisterServiceHandler(String name);
 
-	/**
-	 * Return a previously registered service handler.
-	 * 
-	 * @param name the name of the handler to return
-	 * @return the previously registered handler
-	 */
-	public Object getServiceHandler(String name);
+    /**
+     * Return a previously registered service handler.
+     * 
+     * @param name
+     *            the name of the handler to return
+     * @return the previously registered handler
+     */
+    public Object getServiceHandler(String name);
 
-	/**
-	 * Get list of registered service handler names.
-	 * 
-	 * @return the names of the registered handlers
-	 */
-	public Set<String> getServiceHandlerNames();
+    /**
+     * Get list of registered service handler names.
+     * 
+     * @return the names of the registered handlers
+     */
+    public Set<String> getServiceHandlerNames();
 
 }

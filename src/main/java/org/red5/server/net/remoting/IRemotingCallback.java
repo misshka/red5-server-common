@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,26 +26,32 @@ package org.red5.server.net.remoting;
  */
 public interface IRemotingCallback {
 
-	/**
-	 * The result of a remoting call has been received.
-	 *  
-	 * @param client          Remoting client
-	 * @param method          Remote method name
-	 * @param params          Call parameters
-	 * @param result          Call result
-	 */
-	public void resultReceived(RemotingClient client, String method,
-			Object[] params, Object result);
+    /**
+     * The result of a remoting call has been received.
+     * 
+     * @param client
+     *            Remoting client
+     * @param method
+     *            Remote method name
+     * @param params
+     *            Call parameters
+     * @param result
+     *            Call result
+     */
+    public void resultReceived(RemotingClient client, String method, Object[] params, Object result);
 
-	/**
-	 * An error occured while performing the remoting call.
-	 * 
-	 * @param client          Remoting client
-	 * @param method          Remoting method
-	 * @param params          Call parameters
-	 * @param error           Call result
-	 */
-	public void errorReceived(RemotingClient client, String method,
-			Object[] params, Throwable error);
+    /**
+     * An error occured while performing the remoting call.
+     * 
+     * @param client
+     *            Remoting client
+     * @param method
+     *            Remoting method
+     * @param params
+     *            Call parameters
+     * @param error
+     *            Call result
+     */
+    public void errorReceived(RemotingClient client, String method, Object[] params, Throwable error);
 
 }

@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,50 +28,50 @@ import org.apache.mina.filter.codec.ProtocolEncoder;
  */
 public class RTMPCodecFactory implements ProtocolCodecFactory {
 
-	/**
-	 * Mina protocol decoder for RTMP.
-	 */
-	private RTMPMinaProtocolDecoder decoder;
+    /**
+     * Mina protocol decoder for RTMP.
+     */
+    private RTMPMinaProtocolDecoder decoder;
 
-	/**
-	 * Mina protocol encoder for RTMP.
-	 */
-	private RTMPMinaProtocolEncoder encoder;
+    /**
+     * Mina protocol encoder for RTMP.
+     */
+    private RTMPMinaProtocolEncoder encoder;
 
-	/**
-	 * Initialization
-	 */
-	public void init() {
-		decoder = new RTMPMinaProtocolDecoder();
-		encoder = new RTMPMinaProtocolEncoder();
-	}
+    /**
+     * Initialization
+     */
+    public void init() {
+        decoder = new RTMPMinaProtocolDecoder();
+        encoder = new RTMPMinaProtocolEncoder();
+    }
 
-	/** {@inheritDoc} */
-	public ProtocolDecoder getDecoder(IoSession session) {
-		return decoder;
-	}
+    /** {@inheritDoc} */
+    public ProtocolDecoder getDecoder(IoSession session) {
+        return decoder;
+    }
 
-	/** {@inheritDoc} */
-	public ProtocolEncoder getEncoder(IoSession session) {
-		return encoder;
-	}
+    /** {@inheritDoc} */
+    public ProtocolEncoder getEncoder(IoSession session) {
+        return encoder;
+    }
 
-	/**
-	 * Returns the RTMP decoder.
-	 * 
-	 * @return decoder
-	 */
-	public RTMPProtocolDecoder getRTMPDecoder() {
-		return decoder.getDecoder();
-	}
+    /**
+     * Returns the RTMP decoder.
+     * 
+     * @return decoder
+     */
+    public RTMPProtocolDecoder getRTMPDecoder() {
+        return decoder.getDecoder();
+    }
 
-	/**
-	 * Returns the RTMP encoder.
-	 * 
-	 * @return encoder
-	 */
-	public RTMPProtocolEncoder getRTMPEncoder() {
-		return encoder.getEncoder();
-	}
+    /**
+     * Returns the RTMP encoder.
+     * 
+     * @return encoder
+     */
+    public RTMPProtocolEncoder getRTMPEncoder() {
+        return encoder.getEncoder();
+    }
 
 }

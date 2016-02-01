@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,23 +29,24 @@ import org.red5.server.api.IConnection;
 
 public interface IClientSharedObject extends ISharedObjectBase {
 
-	/**
-	 * Connect the shared object using the passed connection.
-	 * 
-	 * @param conn connect to connect to
-	 */
-	public void connect(IConnection conn);
-	
-	/**
-	 * Check if the shared object is connected to the server.
-	 * 
-	 * @return is connected
-	 */
-	public boolean isConnected();
-	
-	/**
-	 * Disconnect the shared object.
-	 */
-	public void disconnect();
-	
+    /**
+     * Connect the shared object using the passed connection.
+     * 
+     * @param conn
+     *            connect to connect to
+     */
+    public void connect(IConnection conn);
+
+    /**
+     * Check if the shared object is connected to the server.
+     * 
+     * @return is connected
+     */
+    public boolean isConnected();
+
+    /**
+     * Disconnect the shared object.
+     */
+    public void disconnect();
+
 }

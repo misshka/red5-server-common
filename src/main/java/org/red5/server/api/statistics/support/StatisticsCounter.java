@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,71 +21,70 @@ package org.red5.server.api.statistics.support;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Counts numbers used by the statistics. Keeps track of current,
- * maximum and total numbers.
+ * Counts numbers used by the statistics. Keeps track of current, maximum and total numbers.
  * 
  * @author The Red5 Project
  * @author Joachim Bauch (jojo@struktur.de)
  */
 public class StatisticsCounter {
 
-	/** Current number. */
-	private AtomicInteger current = new AtomicInteger();
-	
-	/** Total number. */
-	private AtomicInteger total = new AtomicInteger();
-	
-	/** Maximum number. */
-	private AtomicInteger max = new AtomicInteger();
-	
-	/**
-	 * Increment statistics by one.
-	 */
-	public void increment() {
-		total.incrementAndGet();
-		max.compareAndSet(current.intValue(), current.incrementAndGet());
-	}
-	
-	/**
-	 * Decrement statistics by one.
-	 */
-	public void decrement() {
-		current.decrementAndGet();
-	}
-	
-	/**
-	 * Get current number.
-	 * 
-	 * @return current number
-	 */
-	public int getCurrent() {
-		return current.intValue();
-	}
-	
-	/**
-	 * Get total number.
-	 * 
-	 * @return total
-	 */
-	public int getTotal() {
-		return total.intValue();
-	}
-	
-	/**
-	 * Get maximum number.
-	 * 
-	 * @return max
-	 */
-	public int getMax() {
-		return max.intValue();
-	}
+    /** Current number. */
+    private AtomicInteger current = new AtomicInteger();
 
-	/* (non-Javadoc)
-	 * @see java.lang.Object#toString()
-	 */
-	@Override
-	public String toString() {
-		return "StatisticsCounter [current=" + current + ", total=" + total + ", max=" + max + "]";
-	}
-	
+    /** Total number. */
+    private AtomicInteger total = new AtomicInteger();
+
+    /** Maximum number. */
+    private AtomicInteger max = new AtomicInteger();
+
+    /**
+     * Increment statistics by one.
+     */
+    public void increment() {
+        total.incrementAndGet();
+        max.compareAndSet(current.intValue(), current.incrementAndGet());
+    }
+
+    /**
+     * Decrement statistics by one.
+     */
+    public void decrement() {
+        current.decrementAndGet();
+    }
+
+    /**
+     * Get current number.
+     * 
+     * @return current number
+     */
+    public int getCurrent() {
+        return current.intValue();
+    }
+
+    /**
+     * Get total number.
+     * 
+     * @return total
+     */
+    public int getTotal() {
+        return total.intValue();
+    }
+
+    /**
+     * Get maximum number.
+     * 
+     * @return max
+     */
+    public int getMax() {
+        return max.intValue();
+    }
+
+    /* (non-Javadoc)
+     * @see java.lang.Object#toString()
+     */
+    @Override
+    public String toString() {
+        return "StatisticsCounter [current=" + current + ", total=" + total + ", max=" + max + "]";
+    }
+
 }

@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,19 +19,19 @@
 package org.red5.server.api.scope;
 
 /**
- * Maker interface for all objects that are aware of the scope they are located
- * in.
- *  
+ * Maker interface for all objects that are aware of the scope they are located in.
+ * 
  * @author The Red5 Project
  * @author Luke Hubbard (luke@codegent.com)
  */
 public interface IScopeAware {
 
-	/**
-	 * Set the scope the object is located in.
-	 * 
-	 * @param scope Scope for this object
-	 */
-	public void setScope(IScope scope);
+    /**
+     * Set the scope the object is located in.
+     * 
+     * @param scope
+     *            Scope for this object
+     */
+    public void setScope(IScope scope);
 
 }

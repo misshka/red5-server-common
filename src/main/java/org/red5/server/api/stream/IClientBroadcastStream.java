@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,30 +30,31 @@ import org.red5.server.api.statistics.IClientBroadcastStreamStatistics;
  */
 public interface IClientBroadcastStream extends IClientStream, IBroadcastStream {
 
-	/**
-	 * Notify client that stream is ready for publishing.
-	 */
-	public void startPublishing();
-	
-	/**
-	 * Return statistics about the stream.
-	 * 
-	 * @return statistics
-	 */
-	public IClientBroadcastStreamStatistics getStatistics();
+    /**
+     * Notify client that stream is ready for publishing.
+     */
+    public void startPublishing();
 
-	/**
-	 * Sets streaming parameters as supplied by the publishing application.
-	 * 
-	 * @param params parameter map
-	 */
-	public void setParameters(Map<String, String> params);
-	
-	/**
-	 * Returns streaming parameters.
-	 * 
-	 * @return parameters
-	 */
-	public Map<String, String> getParameters();
-	
+    /**
+     * Return statistics about the stream.
+     * 
+     * @return statistics
+     */
+    public IClientBroadcastStreamStatistics getStatistics();
+
+    /**
+     * Sets streaming parameters as supplied by the publishing application.
+     * 
+     * @param params
+     *            parameter map
+     */
+    public void setParameters(Map<String, String> params);
+
+    /**
+     * Returns streaming parameters.
+     * 
+     * @return parameters
+     */
+    public Map<String, String> getParameters();
+
 }

@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,21 +19,21 @@
 package org.red5.server.api.scheduling;
 
 /**
- * Interface that must be implemented by classes that can be scheduled for
- * periodic execution. 
+ * Interface that must be implemented by classes that can be scheduled for periodic execution.
  * 
  * @author The Red5 Project
  * @author Joachim Bauch (jojo@struktur.de)
  */
 public interface IScheduledJob {
 
-	/**
-	 * Called each time the job is triggered by the scheduling service.
-	 * 
-	 * @param service the service that called the job
-	 * @throws CloneNotSupportedException throws if Darth Vader attempts to use
-	 *   this object for his own nefarious purposes.
-	 */
-	public void execute(ISchedulingService service) throws CloneNotSupportedException;
+    /**
+     * Called each time the job is triggered by the scheduling service.
+     * 
+     * @param service
+     *            the service that called the job
+     * @throws CloneNotSupportedException
+     *             throws if Darth Vader attempts to use this object for his own nefarious purposes.
+     */
+    public void execute(ISchedulingService service) throws CloneNotSupportedException;
 
 }

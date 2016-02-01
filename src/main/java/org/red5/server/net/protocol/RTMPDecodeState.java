@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,11 +23,11 @@ package org.red5.server.net.protocol;
  */
 public class RTMPDecodeState {
 
-	/**
-	 * Session id to which this decoding state belongs.
-	 */
-	public String sessionId;
-	
+    /**
+     * Session id to which this decoding state belongs.
+     */
+    public String sessionId;
+
     /**
      * Decoding finished successfully state constant.
      */
@@ -46,99 +46,100 @@ public class RTMPDecodeState {
     /**
      * Classes like the RTMP state object will extend this marker interface.
      */
-	private int decoderBufferAmount;
+    private int decoderBufferAmount;
 
     /**
      * Current decoder state, decoder is stopped by default.
      */
     private byte decoderState = DECODER_OK;
-	
-	public RTMPDecodeState(String sessionId) {
-		this.sessionId = sessionId;
-	}
 
-	/**
-	 * Returns current buffer amount.
-	 *
-	 * @return	Buffer amount
-	 */
-	public int getDecoderBufferAmount() {
-		return decoderBufferAmount;
-	}
-	
-	/**
-	 * Specifies buffer decoding amount
-	 * 
-	 * @param amount        Buffer decoding amount
-	 */
-	public void bufferDecoding(int amount) {
-		decoderState = DECODER_BUFFER;
-		decoderBufferAmount = amount;
-	}
-	
-	/**
-	 * Set decoding state as "needed to be continued".
-	 */
-	public void continueDecoding() {
-		decoderState = DECODER_CONTINUE;
-	}
-	
-	/**
-	 * Checks whether remaining buffer size is greater or equal than buffer amount and so if it makes sense to start decoding.
-	 * 
-	 * @param remaining		Remaining buffer size
-	 * @return				<pre>true</pre> if there is data to decode, <pre>false</pre> otherwise
-	 */
-	public boolean canStartDecoding(int remaining) {
-		return remaining >= decoderBufferAmount;
-	}
-	
-	/**
-	 * Starts decoding. Sets state to "ready" and clears buffer amount.
-	 */
-	public void startDecoding() {
-		decoderState = DECODER_OK;
-		decoderBufferAmount = 0;
-	}
-	
-	/**
-	 * Checks whether decoding is complete.
-	 *
-	 * @return	<pre>true</pre> if decoding has finished, <pre>false</pre> otherwise
-	 */
-	public boolean hasDecodedObject() {
-		return (decoderState == DECODER_OK);
-	}
-	
-	/**
-	 * Checks whether decoding process can be continued.
-	 *
-	 * @return	<pre>true</pre> if decoding can be continued, <pre>false</pre> otherwise
-	 */
-	public boolean canContinueDecoding() {
-		return (decoderState != DECODER_BUFFER);
-	}
+    public RTMPDecodeState(String sessionId) {
+        this.sessionId = sessionId;
+    }
 
-	/**
-	 * @return the sessionId
-	 */
-	public String getSessionId() {
-		return sessionId;
-	}
+    /**
+     * Returns current buffer amount.
+     *
+     * @return Buffer amount
+     */
+    public int getDecoderBufferAmount() {
+        return decoderBufferAmount;
+    }
 
-	/**
-	 * @param sessionId the sessionId to set
-	 */
-	public void setSessionId(String sessionId) {
-		this.sessionId = sessionId;
-	}
+    /**
+     * Specifies buffer decoding amount
+     * 
+     * @param amount Buffer decoding amount
+     */
+    public void bufferDecoding(int amount) {
+        decoderState = DECODER_BUFFER;
+        decoderBufferAmount = amount;
+    }
 
-	/* (non-Javadoc)
-	 * @see java.lang.Object#toString()
-	 */
-	@Override
-	public String toString() {
-		return "RTMPDecodeState [sessionId=" + sessionId + ", decoderState=" + decoderState + ", decoderBufferAmount=" + decoderBufferAmount + "]";
-	}
+    /**
+     * Set decoding state as "needed to be continued".
+     */
+    public void continueDecoding() {
+        decoderState = DECODER_CONTINUE;
+    }
+
+    /**
+     * Checks whether remaining buffer size is greater or equal than buffer amount and so if it makes sense to start decoding.
+     * 
+     * @param remaining Remaining buffer size
+     * @return true if there is data to decode, false otherwise
+     */
+    public boolean canStartDecoding(int remaining) {
+        return remaining >= decoderBufferAmount;
+    }
+
+    /**
+     * Starts decoding. Sets state to "ready" and clears buffer amount.
+     */
+    public void startDecoding() {
+        decoderState = DECODER_OK;
+        decoderBufferAmount = 0;
+    }
+
+    /**
+     * Checks whether decoding is complete.
+     *
+     * @return true if decoding has finished, false otherwise
+     */
+    public boolean hasDecodedObject() {
+        return (decoderState == DECODER_OK);
+    }
+
+    /**
+     * Checks whether decoding process can be continued.
+     *
+     * @return true if decoding can be continued, false otherwise
+     */
+    public boolean canContinueDecoding() {
+        return (decoderState != DECODER_BUFFER);
+    }
+
+    /**
+     * @return the sessionId
+     */
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    /**
+     * @param sessionId
+     *            the sessionId to set
+     */
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
+    }
+
+    /* (non-Javadoc)
+     * @see java.lang.Object#toString()
+     */
+    @Override
+    public String toString() {
+        return "RTMPDecodeState [sessionId=" + sessionId + ", decoderState=" + decoderState + ", decoderBufferAmount=" + decoderBufferAmount + "]";
+    }
 
 }

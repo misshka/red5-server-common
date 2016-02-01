@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,13 +29,13 @@ import org.red5.server.messaging.IProvider;
  */
 public interface IStreamTypeAwareProvider extends IProvider {
 
-	public static final String KEY = IStreamTypeAwareProvider.class.getName();
+    public static final String KEY = IStreamTypeAwareProvider.class.getName();
 
-	/**
-	 * Check if the provider contains video tags.
-	 * 
-	 * @return provider has video
-	 */
-	public boolean hasVideo();
-	
+    /**
+     * Check if the provider contains video tags.
+     * 
+     * @return provider has video
+     */
+    public boolean hasVideo();
+
 }

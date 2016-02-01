@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,7 +70,6 @@ import org.red5.server.net.rtmp.message.Constants;
 import org.red5.server.net.rtmp.message.Header;
 import org.red5.server.net.rtmp.status.Status;
 import org.red5.server.net.rtmp.status.StatusCodes;
-import org.red5.server.net.rtmpt.RTMPTConnection;
 import org.red5.server.stream.message.RTMPMessage;
 import org.red5.server.stream.message.ResetMessage;
 import org.red5.server.stream.message.StatusMessage;
@@ -88,51 +87,51 @@ import org.slf4j.Logger;
  */
 public final class PlayEngine implements IFilter, IPushableConsumer, IPipeConnectionListener {
 
-	private static final Logger log = Red5LoggerFactory.getLogger(PlayEngine.class);
+    private static final Logger log = Red5LoggerFactory.getLogger(PlayEngine.class);
 
-	private IMessageInput msgIn;
+    private IMessageInput msgIn;
 
-	private IMessageOutput msgOut;
+    private IMessageOutput msgOut;
 
-	private final ISubscriberStream subscriberStream;
+    private final ISubscriberStream subscriberStream;
 
-	private ISchedulingService schedulingService;
+    private ISchedulingService schedulingService;
 
-	private IConsumerService consumerService;
+    private IConsumerService consumerService;
 
-	private IProviderService providerService;
+    private IProviderService providerService;
 
-	private Number streamId;
+    private Number streamId;
 
-	/**
-	 * Receive video?
-	 */
-	private boolean receiveVideo = true;
+    /**
+     * Receive video?
+     */
+    private boolean receiveVideo = true;
 
-	/**
-	 * Receive audio?
-	 */
-	private boolean receiveAudio = true;
+    /**
+     * Receive audio?
+     */
+    private boolean receiveAudio = true;
 
-	private boolean pullMode;
+    private boolean pullMode;
 
-	private String waitLiveJob;
+    private String waitLiveJob;
 
-	private boolean waiting;
+    private boolean waiting;
 
-	/**
-	 * timestamp of first sent packet
-	 */
-	private int streamStartTS;
+    /**
+     * timestamp of first sent packet
+     */
+    private int streamStartTS;
 
-	private IPlayItem currentItem;
+    private IPlayItem currentItem;
 
-	private RTMPMessage pendingMessage;
+    private RTMPMessage pendingMessage;
 
-	/**
-	 * Interval in ms to check for buffer underruns in VOD streams.
-	 */
-	private int bufferCheckInterval = 0;
+    /**
+     * Interval in ms to check for buffer underruns in VOD streams.
+     */
+    private int bufferCheckInterval = 0;
 
 	/**
 	 * Number of pending messages at which a <pre>NetStream.Play.InsufficientBW</pre>
@@ -1916,4 +1915,4 @@ public final class PlayEngine implements IFilter, IPushableConsumer, IPipeConnec
 	public void setMaxSequentialPendingVideoFrames(int maxSequentialPendingVideoFrames) {
 		this.maxSequentialPendingVideoFrames = maxSequentialPendingVideoFrames;
 	}
-}
+    }

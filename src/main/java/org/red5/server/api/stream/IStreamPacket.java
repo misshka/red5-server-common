@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,25 +28,31 @@ import org.apache.mina.core.buffer.IoBuffer;
  */
 public interface IStreamPacket {
 
-	/**
-	 * Type of this packet. This is one of the <pre>TYPE_</pre> constants.
-	 * 
-	 * @return the type
-	 */
-	public byte getDataType();
-	
-	/**
-	 * Timestamp of this packet.
-	 * 
-	 * @return the timestamp in milliseconds
-	 */
-	public int getTimestamp();
-	
-	/**
-	 * Packet contents.
-	 * 
-	 * @return the contents
-	 */
-	public IoBuffer getData();
-	
+    /**
+     * Type of this packet. This is one of the
+     * 
+     * <pre>
+     * TYPE_
+     * </pre>
+     * 
+     * constants.
+     * 
+     * @return the type
+     */
+    public byte getDataType();
+
+    /**
+     * Timestamp of this packet.
+     * 
+     * @return the timestamp in milliseconds
+     */
+    public int getTimestamp();
+
+    /**
+     * Packet contents.
+     * 
+     * @return the contents
+     */
+    public IoBuffer getData();
+
 }

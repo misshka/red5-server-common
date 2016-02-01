@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,22 +22,24 @@ import org.red5.server.api.scope.IScope;
 
 public interface IRtmpSampleAccess {
 
-	public static String BEAN_NAME = "rtmpSampleAccess";
+    public static String BEAN_NAME = "rtmpSampleAccess";
 
-	/**
-	 * Return true if sample access allowed on audio stream.
-	 * 
-	 * @param scope scope
-	 * @return true if sample access allowed on audio stream
-	 */
-	public boolean isAudioAllowed(IScope scope);
+    /**
+     * Return true if sample access allowed on audio stream.
+     * 
+     * @param scope
+     *            scope
+     * @return true if sample access allowed on audio stream
+     */
+    public boolean isAudioAllowed(IScope scope);
 
-	/**
-	 * Return true if sample access allowed on video stream.
-	 * 
-	 * @param scope scope
-	 * @return true if sample access allowed on video stream
-	 */
-	public boolean isVideoAllowed(IScope scope);
+    /**
+     * Return true if sample access allowed on video stream.
+     * 
+     * @param scope
+     *            scope
+     * @return true if sample access allowed on video stream
+     */
+    public boolean isVideoAllowed(IScope scope);
 
 }

@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,104 +36,119 @@ import org.red5.server.so.ISharedObjectMessage;
  * Event decoder decodes event objects from incoming byte buffer.
  */
 public interface IEventDecoder {
-	
-	/**
-	 * Decodes event of Unknown type.
-	 * 
-	 * @param dataType               Data type
-	 * @param in                     Byte buffer to decode
-	 * @return                       Unknown event
-	 */
-	public abstract Unknown decodeUnknown(byte dataType, IoBuffer in);
 
-	/**
-	 * Decodes chunk size event.
-	 * 
-	 * @param in                     Byte buffer to decode
-	 * @return                       ChunkSize event
-	 */
-	public abstract ChunkSize decodeChunkSize(IoBuffer in);
+    /**
+     * Decodes event of Unknown type.
+     * 
+     * @param dataType
+     *            Data type
+     * @param in
+     *            Byte buffer to decode
+     * @return Unknown event
+     */
+    public abstract Unknown decodeUnknown(byte dataType, IoBuffer in);
 
-	/**
-	 * Decodes shared object message event.
-	 * 
-	 * @param in                     Byte buffer to decode
-	 * @return                       ISharedObjectMessage event
-	 */
-	public abstract ISharedObjectMessage decodeSharedObject(IoBuffer in);
+    /**
+     * Decodes chunk size event.
+     * 
+     * @param in
+     *            Byte buffer to decode
+     * @return ChunkSize event
+     */
+    public abstract ChunkSize decodeChunkSize(IoBuffer in);
 
-	/**
-	 * Decodes shared object message event from AMF3 encoding.
-	 * 
-	 * @param in                     Byte buffer to decode
-	 * @return                       ISharedObjectMessage event
-	 */
-	public abstract ISharedObjectMessage decodeFlexSharedObject(IoBuffer in);
+    /**
+     * Decodes shared object message event.
+     * 
+     * @param in
+     *            Byte buffer to decode
+     * @return ISharedObjectMessage event
+     */
+    public abstract ISharedObjectMessage decodeSharedObject(IoBuffer in);
 
-	/**
-	 * Decode a Notify.
-	 * 
-	 * @param encoding encoding
-	 * @param in input buffer
-	 * @return decoded notify result
-	 */
-	public abstract Notify decodeNotify(Encoding encoding, IoBuffer in);
+    /**
+     * Decodes shared object message event from AMF3 encoding.
+     * 
+     * @param in
+     *            Byte buffer to decode
+     * @return ISharedObjectMessage event
+     */
+    public abstract ISharedObjectMessage decodeFlexSharedObject(IoBuffer in);
 
-	/**
-	 * Decodes invocation event.
-	 * 
-	 * @param encoding encoding 
-	 * @param in                     Byte buffer to decode
-	 * @return                       Invoke event
-	 */
-	public abstract Invoke decodeInvoke(Encoding encoding, IoBuffer in);
+    /**
+     * Decode a Notify.
+     * 
+     * @param encoding
+     *            encoding
+     * @param in
+     *            input buffer
+     * @return decoded notify result
+     */
+    public abstract Notify decodeNotify(Encoding encoding, IoBuffer in);
 
-	/**
-	 * Decodes ping event.
-	 * 
-	 * @param in                     Byte buffer to decode
-	 * @return                       Ping event
-	 */
-	public abstract Ping decodePing(IoBuffer in);
+    /**
+     * Decodes invocation event.
+     * 
+     * @param encoding
+     *            encoding
+     * @param in
+     *            Byte buffer to decode
+     * @return Invoke event
+     */
+    public abstract Invoke decodeInvoke(Encoding encoding, IoBuffer in);
 
-	/**
-	 * Decodes BytesRead event.
-	 * 
-	 * @param in                     Byte buffer to decode
-	 * @return                       BytesRead event
-	 */
-	public abstract BytesRead decodeBytesRead(IoBuffer in);
+    /**
+     * Decodes ping event.
+     * 
+     * @param in
+     *            Byte buffer to decode
+     * @return Ping event
+     */
+    public abstract Ping decodePing(IoBuffer in);
 
-	/**
-	 * Decodes the aggregated data.
-	 * 
-	 * @param in                     Byte buffer to decode
-	 * @return                       Aggregate event
-	 */
-	public abstract Aggregate decodeAggregate(IoBuffer in);
+    /**
+     * Decodes BytesRead event.
+     * 
+     * @param in
+     *            Byte buffer to decode
+     * @return BytesRead event
+     */
+    public abstract BytesRead decodeBytesRead(IoBuffer in);
 
-	/**
-	 * Decodes audio data event.
-	 * 
-	 * @param in                     Byte buffer to decode
-	 * @return                       AudioData event
-	 */
-	public abstract AudioData decodeAudioData(IoBuffer in);
+    /**
+     * Decodes the aggregated data.
+     * 
+     * @param in
+     *            Byte buffer to decode
+     * @return Aggregate event
+     */
+    public abstract Aggregate decodeAggregate(IoBuffer in);
 
-	/**
-	 * Decodes video data event.
-	 * 
-	 * @param in                     Byte buffer to decode
-	 * @return                       VideoData event
-	 */
-	public abstract VideoData decodeVideoData(IoBuffer in);
+    /**
+     * Decodes audio data event.
+     * 
+     * @param in
+     *            Byte buffer to decode
+     * @return AudioData event
+     */
+    public abstract AudioData decodeAudioData(IoBuffer in);
 
-	/**
-	 * Decodes Flex message event.
-	 * 
-	 * @param in                     Byte buffer to decode
-	 * @return                       FlexMessage event
-	 */
-	public abstract FlexMessage decodeFlexMessage(IoBuffer in);
-	
+    /**
+     * Decodes video data event.
+     * 
+     * @param in
+     *            Byte buffer to decode
+     * @return VideoData event
+     */
+    public abstract VideoData decodeVideoData(IoBuffer in);
+
+    /**
+     * Decodes Flex message event.
+     * 
+     * @param in
+     *            Byte buffer to decode
+     * @return FlexMessage event
+     */
+    public abstract FlexMessage decodeFlexMessage(IoBuffer in);
+
 }

@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,22 +26,24 @@ package org.red5.server.service;
  */
 public class ServiceNotFoundException extends RuntimeException {
 
-	/**
+    /**
 	 * 
 	 */
-	private static final long serialVersionUID = 7543755414829244027L;
+    private static final long serialVersionUID = 7543755414829244027L;
 
-	/** Name of service that doesn't exist. */
-	private String serviceName;
-	
+    /** Name of service that doesn't exist. */
+    private String serviceName;
+
     /**
      * Creates new exception with service name
-     * @param serviceName       Name of service that couldn't been found
+     * 
+     * @param serviceName
+     *            Name of service that couldn't been found
      */
     public ServiceNotFoundException(String serviceName) {
-		super("Service not found: " + serviceName);
-		this.serviceName = serviceName;
-	}
+        super("Service not found: " + serviceName);
+        this.serviceName = serviceName;
+    }
 
     /**
      * Get the name of the service that doesn't exist.
@@ -49,7 +51,7 @@ public class ServiceNotFoundException extends RuntimeException {
      * @return name of the service
      */
     public String getServiceName() {
-    	return serviceName;
+        return serviceName;
     }
-    
+
 }

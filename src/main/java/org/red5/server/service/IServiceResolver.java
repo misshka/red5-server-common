@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,22 +23,28 @@ import org.red5.server.api.scope.IScope;
 /**
  * Interface for objects that resolve service names to services.
  * 
- * This is used by the ServiceInvoker to lookup the service to invoke
- * a method on.
+ * This is used by the ServiceInvoker to lookup the service to invoke a method on.
  * 
  * @author The Red5 Project
  * @author Joachim Bauch (jojo@struktur.de)
  */
 public interface IServiceResolver {
 
-	/**
-	 * Search for a service with the given name in the scope.
-	 * 
-	 * @param scope the scope to search in
-	 * @param serviceName the name of the service
-	 * @return the object implementing the service or <pre>null</pre> if
-	 *         service doesn't exist
-	 */
-	public Object resolveService(IScope scope, String serviceName);
+    /**
+     * Search for a service with the given name in the scope.
+     * 
+     * @param scope
+     *            the scope to search in
+     * @param serviceName
+     *            the name of the service
+     * @return the object implementing the service or
+     * 
+     *         <pre>
+     * null
+     * </pre>
+     * 
+     *         if service doesn't exist
+     */
+    public Object resolveService(IScope scope, String serviceName);
 
 }

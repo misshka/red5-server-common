@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,16 +28,16 @@ import org.red5.server.stream.message.RTMPMessage;
  */
 public interface IFrameDropper {
 
-	/** Send keyframes, interframes and disposable interframes. */
+    /** Send keyframes, interframes and disposable interframes. */
     public static final int SEND_ALL = 0;
 
-	/** Send keyframes and interframes. */
+    /** Send keyframes and interframes. */
     public static final int SEND_INTERFRAMES = 1;
 
-	/** Send keyframes only. */
+    /** Send keyframes only. */
     public static final int SEND_KEYFRAMES = 2;
 
-	/** Send keyframes only and switch to SEND_INTERFRAMES later. */
+    /** Send keyframes only and switch to SEND_INTERFRAMES later. */
     public static final int SEND_KEYFRAMES_CHECK = 3;
 
     /** Send buffered keyframe only. */
@@ -58,21 +58,21 @@ public interface IFrameDropper {
 	 */
 	boolean canSendPacket(RTMPMessage message, long pending);
 
-	/**
-	 * Notify that a packet has been dropped.
-	 * 
-	 * @param message
-	 * 			the message that was dropped
-	 */
-	void dropPacket(RTMPMessage message);
+    /**
+     * Notify that a packet has been dropped.
+     * 
+     * @param message
+     *            the message that was dropped
+     */
+    void dropPacket(RTMPMessage message);
 
-	/**
-	 * Notify that a message has been sent.
-	 * 
-	 * @param message
-	 * 			the message that was sent
-	 */
-	void sendPacket(RTMPMessage message);
+    /**
+     * Notify that a message has been sent.
+     * 
+     * @param message
+     *            the message that was sent
+     */
+    void sendPacket(RTMPMessage message);
 
 	/**
 	 * Notify that a message has been skipped.
@@ -85,13 +85,13 @@ public interface IFrameDropper {
 	/** Reset the frame dropper. */
 	void reset();
 
-	/**
-	 * Reset the frame dropper to a given state.
-	 * 
-	 * @param state
-	 * 			the state to reset the frame dropper to
-	 */
-	void reset(int state);
+    /**
+     * Reset the frame dropper to a given state.
+     * 
+     * @param state
+     *            the state to reset the frame dropper to
+     */
+    void reset(int state);
 
     /**
 	 * Gets frame dropper current state.

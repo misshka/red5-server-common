@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,7 @@
 package org.red5.server.messaging;
 
 /**
- * A listener that wants to listen to events when
- * provider/consumer connects to or disconnects from
- * a specific pipe.
+ * A listener that wants to listen to events when provider/consumer connects to or disconnects from a specific pipe.
  * 
  * @author The Red5 Project
  * @author Steven Gong (steven.gong@gmail.com)
@@ -29,7 +27,9 @@ package org.red5.server.messaging;
 public interface IPipeConnectionListener {
     /**
      * Pipe connection event handler
-     * @param event        Pipe connection event
+     * 
+     * @param event
+     *            Pipe connection event
      */
     void onPipeConnectionEvent(PipeConnectionEvent event);
 }

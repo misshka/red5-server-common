@@ -1,7 +1,7 @@
 /*
  * RED5 Open Source Flash Server - https://github.com/Red5/
  * 
- * Copyright 2006-2015 by respective authors (see below). All rights reserved.
+ * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,84 +29,91 @@ import org.red5.io.utils.HexDump;
  * Unknown event
  */
 public class Unknown extends BaseEvent {
-	private static final long serialVersionUID = -1352770037962252975L;
+    private static final long serialVersionUID = -1352770037962252975L;
+
     /**
      * Event data
      */
-	protected IoBuffer data;
+    protected IoBuffer data;
+
     /**
      * Type of data
      */
-	protected byte dataType;
+    protected byte dataType;
 
-	public Unknown() {}
+    public Unknown() {
+    }
+
     /**
      * Create new unknown event with given data and data type
-     * @param dataType             Data type
-     * @param data                 Event data
+     * 
+     * @param dataType
+     *            Data type
+     * @param data
+     *            Event data
      */
     public Unknown(byte dataType, IoBuffer data) {
-		super(Type.SYSTEM);
-		this.dataType = dataType;
-		this.data = data;
-	}
+        super(Type.SYSTEM);
+        this.dataType = dataType;
+        this.data = data;
+    }
 
-	/** {@inheritDoc} */
+    /** {@inheritDoc} */
     @Override
-	public byte getDataType() {
-		return dataType;
-	}
+    public byte getDataType() {
+        return dataType;
+    }
 
-	/**
+    /**
      * Getter for data
      *
-     * @return  Data
+     * @return Data
      */
     public IoBuffer getData() {
-		return data;
-	}
+        return data;
+    }
 
-	/** {@inheritDoc} */
+    /** {@inheritDoc} */
     @Override
-	public String toString() {
-		final IoBuffer buf = getData();
-		StringBuffer sb = new StringBuffer();
-		sb.append("Size: ");
-		sb.append(buf.remaining());
-		sb.append(" Data:\n\n");
-		sb.append(HexDump.formatHexDump(buf.getHexDump()));
-		return sb.toString();
-	}
+    public String toString() {
+        final IoBuffer buf = getData();
+        StringBuffer sb = new StringBuffer();
+        sb.append("Size: ");
+        sb.append(buf.remaining());
+        sb.append(" Data:\n\n");
+        sb.append(HexDump.formatHexDump(buf.getHexDump()));
+        return sb.toString();
+    }
 
-	/** {@inheritDoc} */
+    /** {@inheritDoc} */
     @Override
-	protected void releaseInternal() {
-		if (data != null) {
-			data.free();
-			data = null;
-		}
-	}
+    protected void releaseInternal() {
+        if (data != null) {
+            data.free();
+            data = null;
+        }
+    }
 
-	@Override
-	public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-		super.readExternal(in);
-		dataType = in.readByte();
-		byte[] byteBuf = (byte[]) in.readObject();
-		if (byteBuf != null) {
-			data = IoBuffer.allocate(0);
-			data.setAutoExpand(true);
-			SerializeUtils.ByteArrayToByteBuffer(byteBuf, data);
-		}
-	}
+    @Override
+    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+        super.readExternal(in);
+        dataType = in.readByte();
+        byte[] byteBuf = (byte[]) in.readObject();
+        if (byteBuf != null) {
+            data = IoBuffer.allocate(0);
+            data.setAutoExpand(true);
+            SerializeUtils.ByteArrayToByteBuffer(byteBuf, data);
+        }
+    }
 
-	@Override
-	public void writeExternal(ObjectOutput out) throws IOException {
-		super.writeExternal(out);
-		out.writeByte(dataType);
-		if (data != null) {
-			out.writeObject(SerializeUtils.ByteBufferToByteArray(data));
-		} else {
-			out.writeObject(null);
-		}
-	}
+    @Override
+    public void writeExternal(ObjectOutput out) throws IOException {
+        super.writeExternal(out);
+        out.writeByte(dataType);
+        if (data != null) {
+            out.writeObject(SerializeUtils.ByteBufferToByteArray(data));
+        } else {
+            out.writeObject(null);
+        }
+    }
 }
