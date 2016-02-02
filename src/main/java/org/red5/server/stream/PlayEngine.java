@@ -1759,7 +1759,7 @@ public final class PlayEngine implements IFilter, IPushableConsumer, IPipeConnec
 			}
 
 			if (!messageSent && subscriberStream.getState() == StreamState.PLAYING) {
-				boolean isRTMPTPlayback = subscriberStream.getConnection() instanceof RTMPTConnection;
+				boolean isRTMPTPlayback = subscriberStream.getConnection().getProtocol().equals("rtmpt");
 
 				// send all frames from last keyframe up to requested position and fill client buffer
 				if (sendCheckVideoCM(msgIn)) {
