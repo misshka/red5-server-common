@@ -1,5 +1,5 @@
 /*
- * RED5 Open Source Flash Server - https://github.com/Red5/
+ * RED5 Open Source Media Server - https://github.com/Red5/
  * 
  * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
@@ -59,6 +60,11 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
     protected static Logger log = LoggerFactory.getLogger(RTMPMinaConnection.class);
 
     /**
+     * Closing flag
+     */
+    private final AtomicBoolean closing = new AtomicBoolean(false);
+
+    /**
      * MINA I/O session, connection between two end points
      */
     private transient IoSession ioSession;
@@ -86,10 +92,11 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
         log.debug("Connect scope: {}", newScope);
         boolean success = super.connect(newScope, params);
         if (success) {
+            final Channel two = getChannel(2);
             // tell the flash player how fast we want data and how fast we shall send it
-            getChannel(2).write(new ServerBW(defaultServerBandwidth));
+            two.write(new ServerBW(defaultServerBandwidth));
             // second param is the limit type (0=hard,1=soft,2=dynamic)
-            getChannel(2).write(new ClientBW(defaultClientBandwidth, (byte) limitType));
+            two.write(new ClientBW(defaultClientBandwidth, (byte) limitType));
             // if the client is null for some reason, skip the jmx registration
             if (client != null) {
                 // perform bandwidth detection
@@ -109,36 +116,40 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
     /** {@inheritDoc} */
     @Override
     public void close() {
-        super.close();
-        log.debug("IO Session closing: {}", (ioSession != null ? ioSession.isClosing() : null));
-        if (ioSession != null && !ioSession.isClosing()) {
-            // set a ref to ourself so that the handler can be notified when close future is done
-            final RTMPMinaConnection self = this;
-            // close now, no flushing, no waiting
-            final CloseFuture future = ioSession.close(true);
-            log.debug("Connection close future: {}", future);
-            IoFutureListener<CloseFuture> listener = new IoFutureListener<CloseFuture>() {
-                public void operationComplete(CloseFuture future) {
-                    if (future.isClosed()) {
-                        log.info("Connection is closed: {}", getSessionId());
-                        if (log.isTraceEnabled()) {
-                            log.trace("Session id - local: {} session: {}", getSessionId(), (String) ioSession.removeAttribute(RTMPConnection.RTMP_SESSION_ID));
+        if (closing.compareAndSet(false, true)) {
+            super.close();
+            log.debug("IO Session closing: {}", (ioSession != null ? ioSession.isClosing() : null));
+            if (ioSession != null && !ioSession.isClosing()) {
+                // set a ref to ourself so that the handler can be notified when close future is done
+                final RTMPMinaConnection self = this;
+                // close now, no flushing, no waiting
+                final CloseFuture future = ioSession.closeNow();
+                log.debug("Connection close future: {}", future);
+                IoFutureListener<CloseFuture> listener = new IoFutureListener<CloseFuture>() {
+                    public void operationComplete(CloseFuture future) {
+                        if (future.isClosed()) {
+                            log.info("Connection is closed: {}", getSessionId());
+                            if (log.isTraceEnabled()) {
+                                log.trace("Session id - local: {} session: {}", getSessionId(), (String) ioSession.removeAttribute(RTMPConnection.RTMP_SESSION_ID));
+                            }
+                            handler.connectionClosed(self);
+                        } else {
+                            log.debug("Connection is not yet closed");
                         }
-                        handler.connectionClosed(self);
-                    } else {
-                        log.debug("Connection is not yet closed");
+                        future.removeListener(this);
                     }
-                    future.removeListener(this);
-                }
-            };
-            future.addListener(listener);
+                };
+                future.addListener(listener);
+            }
+            log.debug("Connection state: {}", getState());
+            if (getStateCode() != RTMP.STATE_DISCONNECTED) {
+                handler.connectionClosed(this);
+            }
+            // de-register with JMX
+            unregisterJMX();
+        } else if (log.isDebugEnabled()) {
+            log.debug("Close has already been called");
         }
-        log.debug("Connection state: {}", getState());
-        if (getStateCode() != RTMP.STATE_DISCONNECTED) {
-            handler.connectionClosed(this);
-        }
-        // de-register with JMX
-        unregisterJMX();
     }
 
     /**

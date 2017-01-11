@@ -1,5 +1,5 @@
 /*
- * RED5 Open Source Flash Server - https://github.com/Red5/
+ * RED5 Open Source Media Server - https://github.com/Red5/
  * 
  * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
@@ -357,10 +357,22 @@ public class RTMP {
         return getChannelInfo(channelId).getWriteTimestamp();
     }
 
+    /**
+     * Sets the last "read" packet header for the given channel.
+     * 
+     * @param channelId channel id
+     * @param header header
+     */
     public void setLastReadPacketHeader(int channelId, Header header) {
         getChannelInfo(channelId).setReadPacketHeader(header);
     }
 
+    /**
+     * Returns the last "read" packet header for the given channel.
+     * 
+     * @param channelId channel id
+     * @return Header
+     */
     public Header getLastReadPacketHeader(int channelId) {
         return getChannelInfo(channelId).getReadPacketHeader();
     }
@@ -436,6 +448,7 @@ public class RTMP {
      * Channel details
      */
     private final class ChannelInfo {
+
         // read header
         private Header readHeader;
 

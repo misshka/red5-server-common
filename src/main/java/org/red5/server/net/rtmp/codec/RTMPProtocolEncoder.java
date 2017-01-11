@@ -1,5 +1,5 @@
 /*
- * RED5 Open Source Flash Server - https://github.com/Red5/
+ * RED5 Open Source Media Server - https://github.com/Red5/
  * 
  * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
@@ -94,6 +94,11 @@ public class RTMPProtocolEncoder implements Constants, IEventEncoder {
     private boolean dropLiveFuture;
 
     /**
+     * Whether or not to allow dropper determination code.
+     */
+    private boolean dropEncoded;
+
+    /**
      * Encodes object with given protocol state to byte buffer
      * 
      * @param message
@@ -184,6 +189,8 @@ public class RTMPProtocolEncoder implements Constants, IEventEncoder {
                 out.flip();
                 data = null;
             }
+        } else {
+            log.trace("Dropped: {}", message);
         }
         message.release();
         return out;
@@ -203,8 +210,15 @@ public class RTMPProtocolEncoder implements Constants, IEventEncoder {
      * @return true to drop; false to send
      */
     protected boolean dropMessage(int channelId, IRTMPEvent message) {
+        // whether or not to allow dropping functionality
+        if (!dropEncoded) {
+            log.trace("Not dropping due to flag, source type: {} (0=vod,1=live)", message.getSourceType());
+            return false;
+        }
+        // dont want to drop vod
         boolean isLiveStream = message.getSourceType() == Constants.SOURCE_TYPE_LIVE;
         if (!isLiveStream) {
+            log.trace("Not dropping due to vod");
             return false;
         }
         RTMPConnection conn = (RTMPConnection) Red5.getConnectionLocal();
@@ -212,7 +226,7 @@ public class RTMPProtocolEncoder implements Constants, IEventEncoder {
             final Ping pingMessage = (Ping) message;
             if (pingMessage.getEventType() == Ping.STREAM_PLAYBUFFER_CLEAR) {
                 // client buffer cleared, make sure to reset timestamps for this stream
-                final int channel = conn.getChannelIdForStreamId(pingMessage.getValue2()); //(4 + ((pingMessage.getValue2().intValue() - 1) * 5));
+                final int channel = conn.getChannelIdForStreamId(pingMessage.getValue2());
                 log.trace("Ping stream id: {} channel id: {}", pingMessage.getValue2(), channel);
                 conn.getState().clearLastTimestampMapping(channel, channel + 1, channel + 2);
             }
@@ -1030,6 +1044,10 @@ public class RTMPProtocolEncoder implements Constants, IEventEncoder {
      */
     public void setDropLiveFuture(boolean dropLiveFuture) {
         this.dropLiveFuture = dropLiveFuture;
+    }
+
+    public void setDropEncoded(boolean dropEncoded) {
+        this.dropEncoded = dropEncoded;
     }
 
     public long getBaseTolerance() {

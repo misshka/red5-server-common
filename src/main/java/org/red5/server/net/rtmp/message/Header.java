@@ -1,5 +1,5 @@
 /*
- * RED5 Open Source Flash Server - https://github.com/Red5/
+ * RED5 Open Source Media Server - https://github.com/Red5/
  * 
  * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
@@ -29,6 +29,10 @@ import java.io.ObjectOutput;
 public class Header implements Constants, Cloneable, Externalizable {
 
     private static final long serialVersionUID = 8982665579411495024L;
+
+    public enum HeaderType {
+        HEADER_NEW, HEADER_SAME_SOURCE, HEADER_TIMER_CHANGE, HEADER_CONTINUE;
+    }
 
     /**
      * Channel
@@ -196,6 +200,23 @@ public class Header implements Constants, Cloneable, Externalizable {
         return timerBase;
     }
 
+    public boolean isEmpty() {
+        return !((channelId + dataType + size + streamId.doubleValue()) > 0d);
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + channelId;
+        result = prime * result + dataType;
+        result = prime * result + size;
+        result = prime * result + streamId.intValue();
+        result = prime * result + getTimer();
+        result = prime * result + extendedTimestamp;
+        return result;
+    }
+
     /** {@inheritDoc} */
     @Override
     public boolean equals(Object other) {
@@ -246,10 +267,10 @@ public class Header implements Constants, Cloneable, Externalizable {
     @Override
     public String toString() {
         // if its new and props are un-set, just return that message
-        if ((channelId + dataType + size + streamId.doubleValue()) > 0d) {
-            return "Header [streamId=" + streamId + ", channelId=" + channelId + ", dataType=" + dataType + ", timerBase=" + timerBase + ", timerDelta=" + timerDelta + ", size=" + size + ", extendedTimestamp=" + extendedTimestamp + "]";
-        } else {
+        if (isEmpty()) {
             return "empty";
+        } else {
+            return "Header [streamId=" + streamId + ", channelId=" + channelId + ", dataType=" + dataType + ", timerBase=" + timerBase + ", timerDelta=" + timerDelta + ", size=" + size + ", extendedTimestamp=" + extendedTimestamp + "]";
         }
     }
 

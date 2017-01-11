@@ -1,5 +1,5 @@
 /*
- * RED5 Open Source Flash Server - https://github.com/Red5/
+ * RED5 Open Source Media Server - https://github.com/Red5/
  * 
  * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
@@ -19,11 +19,14 @@
 package org.red5.server.net.rtmp.codec;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.codec.binary.Hex;
 import org.apache.mina.core.buffer.IoBuffer;
 import org.red5.io.amf.AMF;
 import org.red5.io.amf.Output;
@@ -32,10 +35,8 @@ import org.red5.io.object.DataTypes;
 import org.red5.io.object.Deserializer;
 import org.red5.io.object.Input;
 import org.red5.io.object.StreamAction;
-import org.red5.io.utils.BufferUtils;
 import org.red5.server.api.IConnection.Encoding;
 import org.red5.server.api.Red5;
-import org.red5.server.net.protocol.HandshakeFailedException;
 import org.red5.server.net.protocol.ProtocolException;
 import org.red5.server.net.protocol.RTMPDecodeState;
 import org.red5.server.net.rtmp.RTMPConnection;
@@ -47,7 +48,6 @@ import org.red5.server.net.rtmp.event.BytesRead;
 import org.red5.server.net.rtmp.event.ChunkSize;
 import org.red5.server.net.rtmp.event.ClientBW;
 import org.red5.server.net.rtmp.event.FlexMessage;
-import org.red5.server.net.rtmp.event.FlexStreamSend;
 import org.red5.server.net.rtmp.event.IRTMPEvent;
 import org.red5.server.net.rtmp.event.Invoke;
 import org.red5.server.net.rtmp.event.Notify;
@@ -57,16 +57,19 @@ import org.red5.server.net.rtmp.event.ServerBW;
 import org.red5.server.net.rtmp.event.SetBuffer;
 import org.red5.server.net.rtmp.event.Unknown;
 import org.red5.server.net.rtmp.event.VideoData;
+import org.red5.server.net.rtmp.message.ChunkHeader;
 import org.red5.server.net.rtmp.message.Constants;
 import org.red5.server.net.rtmp.message.Header;
 import org.red5.server.net.rtmp.message.Packet;
 import org.red5.server.net.rtmp.message.SharedObjectTypeMapping;
-import org.red5.server.service.Call;
+import org.red5.server.net.rtmp.status.Status;
+import org.red5.server.net.rtmp.status.StatusCodes;
 import org.red5.server.service.PendingCall;
 import org.red5.server.so.FlexSharedObjectMessage;
 import org.red5.server.so.ISharedObjectEvent;
 import org.red5.server.so.ISharedObjectMessage;
 import org.red5.server.so.SharedObjectMessage;
+import org.red5.server.stream.StreamService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,7 +78,10 @@ import org.slf4j.LoggerFactory;
  */
 public class RTMPProtocolDecoder implements Constants, IEventDecoder {
 
-    protected Logger log = LoggerFactory.getLogger(RTMPProtocolDecoder.class);
+    protected static final Logger log = LoggerFactory.getLogger(RTMPProtocolDecoder.class);
+
+    // close when header errors occur
+    protected boolean closeOnHeaderError;
 
     /** Constructs a new RTMPProtocolDecoder. */
     public RTMPProtocolDecoder() {
@@ -91,6 +97,10 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
      * @return a list of decoded objects, may be empty if nothing could be decoded
      */
     public List<Object> decodeBuffer(RTMPConnection conn, IoBuffer buffer) {
+        final int position = buffer.position();
+        if (log.isTraceEnabled()) {
+            log.trace("decodeBuffer: {}", Hex.encodeHexString(Arrays.copyOfRange(buffer.array(), position, buffer.limit())));
+        }
         // decoded results
         List<Object> result = null;
         if (conn != null) {
@@ -100,12 +110,12 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
                 result = new LinkedList<Object>();
                 // get the local decode state
                 RTMPDecodeState state = conn.getDecoderState();
-                log.trace("{}", state);
+                log.trace("RTMP decode state {}", state);
                 if (!conn.getSessionId().equals(state.getSessionId())) {
                     log.warn("Session decode overlap: {} != {}", conn.getSessionId(), state.getSessionId());
                 }
-                while (buffer.hasRemaining()) {
-                    final int remaining = buffer.remaining();
+                int remaining;
+                while ((remaining = buffer.remaining()) > 0) {
                     if (state.canStartDecoding(remaining)) {
                         log.trace("Can start decoding");
                         state.startDecoding();
@@ -127,14 +137,8 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
                         break;
                     }
                 }
-            } catch (HandshakeFailedException hfe) {
-                // close the connection
-                log.warn("Closing connection because decoding failed during handshake: {}", conn, hfe);
-                // clear buffer if something is wrong in protocol decoding
-                buffer.clear();
-                // close connection because we can't parse data from it
-                conn.close();
             } catch (Exception ex) {
+                log.warn("Failed to decodeBuffer: pos {}, limit {}, chunk size {}, buffer {}", position, buffer.limit(), conn.getState().getReadChunkSize(), Hex.encodeHexString(Arrays.copyOfRange(buffer.array(), position, buffer.limit())));
                 // catch any non-handshake exception in the decoding; close the connection
                 log.warn("Closing connection because decoding failed: {}", conn, ex);
                 // clear the buffer to eliminate memory leaks when we can't parse protocol
@@ -145,9 +149,7 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
                 if (log.isTraceEnabled()) {
                     log.trace("decodeBuffer - post decode input buffer position: {} remaining: {}", buffer.position(), buffer.remaining());
                 }
-                if (buffer.remaining() > 0) {
-                    buffer.compact();
-                }
+                buffer.compact();
             }
         } else {
             log.error("Decoding buffer failed, no current connection!?");
@@ -187,7 +189,7 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
                 case RTMP.STATE_DISCONNECTING:
                 case RTMP.STATE_DISCONNECTED:
                     // throw away any remaining input data:
-                    in.position(in.limit());
+                    in.clear();
                     return null;
                 default:
                     throw new IllegalStateException("Invalid RTMP state: " + connectionState);
@@ -216,112 +218,87 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
      * @return Packet
      */
     public Packet decodePacket(RTMPConnection conn, RTMPDecodeState state, IoBuffer in) {
-        if (log.isTraceEnabled()) {
-            log.trace("decodePacket - state: {} buffer: {}", state, in);
-        }
-        final int remaining = in.remaining();
-        // at least one byte for valid decode
-        if (remaining < 1) {
-            state.bufferDecoding(1);
-            return null;
-        }
         final int position = in.position();
-        byte headerByte = in.get();
-        int headerValue, byteCount;
-        if ((headerByte & 0x3f) == 0) {
-            // two byte header
-            if (remaining < 2) {
-                in.position(position);
-                state.bufferDecoding(2);
-                return null;
-            }
-            headerValue = (headerByte & 0xff) << 8 | (in.get() & 0xff);
-            byteCount = 2;
-        } else if ((headerByte & 0x3f) == 1) {
-            // three byte header
-            if (remaining < 3) {
-                in.position(position);
-                state.bufferDecoding(3);
-                return null;
-            }
-            headerValue = (headerByte & 0xff) << 16 | (in.get() & 0xff) << 8 | (in.get() & 0xff);
-            byteCount = 3;
-        } else {
-            // single byte header
-            headerValue = headerByte & 0xff;
-            byteCount = 1;
+        if (log.isTraceEnabled()) {
+            //log.trace("decodePacket - state: {} buffer: {}", state, in);
+            //log.trace("decodePacket: position {}, limit {}, {}", position, in.limit(), Hex.encodeHexString(Arrays.copyOfRange(in.array(), position, in.limit())));
+            log.trace("decodePacket: position {}, limit {}", position, in.limit());
         }
-        final int channelId = RTMPUtils.decodeChannelId(headerValue, byteCount);
-        if (channelId < 0) {
-            throw new ProtocolException("Bad channel id: " + channelId);
-        }
+        // get RTMP state holder
         RTMP rtmp = conn.getState();
-        // get the header size and length
-        byte headerSize = RTMPUtils.decodeHeaderSize(headerValue, byteCount);
-        int headerLength = RTMPUtils.getHeaderLength(headerSize);
-        Header lastHeader = rtmp.getLastReadHeader(channelId);
-        headerLength += byteCount - 1;
-        switch (headerSize) {
-            case HEADER_NEW:
-            case HEADER_SAME_SOURCE:
-            case HEADER_TIMER_CHANGE:
-                if (remaining >= headerLength) {
-                    int timeValue = RTMPUtils.readUnsignedMediumInt(in);
-                    if (timeValue == 0xffffff) {
-                        headerLength += 4;
-                    }
-                }
-                break;
-            case HEADER_CONTINUE:
-                if (lastHeader != null && lastHeader.getExtendedTimestamp() != 0) {
-                    headerLength += 4;
-                }
-                break;
-            default:
-                throw new ProtocolException("Unexpected header size " + headerSize + " check for error");
-        }
-        if (remaining < headerLength) {
-            log.trace("Header too small (hlen: {}), buffering. remaining: {}", headerLength, remaining);
+        // read the chunk header (variable from 1-3 bytes)
+        final ChunkHeader chunkHeader = ChunkHeader.read(in);
+        // represents "packet" header length via "format" only 1 byte in the chunk header is needed here
+        int headerLength = RTMPUtils.getHeaderLength(chunkHeader.getFormat());
+        headerLength += chunkHeader.getSize() - 1;
+        if (in.remaining() < headerLength) {
+            state.bufferDecoding(headerLength - in.remaining());
             in.position(position);
-            state.bufferDecoding(headerLength);
             return null;
         }
-        // move the position back to the start
-        in.position(position);
-        final Header header = decodeHeader(in, lastHeader);
-        if (header == null) {
-            throw new ProtocolException("Header is null, check for error");
+        final Header header = decodeHeader(chunkHeader, state, in, rtmp);
+        // get the channel id
+        final int channelId = header != null ? header.getChannelId() : chunkHeader.getChannelId();
+        if (header == null || header.isEmpty()) {
+            if (log.isTraceEnabled()) {
+                log.trace("Header was null or empty - chh: {}", chunkHeader);
+            }
+            // clear / compact the input and close the channel
+            in.clear();
+            in.compact();
+            // send a NetStream.Failed message
+            StreamService.sendNetStreamStatus(conn, StatusCodes.NS_FAILED, "Bad data on channel: " + channelId, "no-name", Status.ERROR, conn.getStreamIdForChannelId(channelId));
+            // close the channel on which the issue occurred, until we find a way to exclude the current data
+            conn.closeChannel(channelId);
+            return null;
         }
+        // get the size of our chunks
+        int readChunkSize = rtmp.getReadChunkSize();
+        // store the header based on its channel id
         rtmp.setLastReadHeader(channelId, header);
-        // check to see if this is a new packets or continue decoding an existing one
+        // check to see if this is a new packet or continue decoding an existing one
         Packet packet = rtmp.getLastReadPacket(channelId);
         if (packet == null) {
+            // create a new packet
             packet = new Packet(header.clone());
+            // store the packet based on its channel id
             rtmp.setLastReadPacket(channelId, packet);
         }
-        final IoBuffer buf = packet.getData();
-        final int readRemaining = header.getSize() - buf.position();
-        final int chunkSize = rtmp.getReadChunkSize();
-        final int readAmount = (readRemaining > chunkSize) ? chunkSize : readRemaining;
-        if (in.remaining() < readAmount) {
-            log.debug("Chunk too small, buffering ({},{})", in.remaining(), readAmount);
-            // skip the position back to the start
+        // get the packet data
+        IoBuffer buf = packet.getData();
+        if (log.isTraceEnabled()) {
+            log.trace("Source buffer position: {}, limit: {}, packet-buf.position {}, packet size: {}", new Object[] { in.position(), in.limit(), buf.position(), header.getSize() });
+        }
+        // read chunk
+        int length = Math.min(buf.remaining(), readChunkSize);
+        if (in.remaining() < length) {
+            log.debug("Chunk too small, buffering ({},{})", in.remaining(), length);
+            // how much more data we need to continue?
+            state.bufferDecoding(in.position() - position + length);
+            // we need to move back position so header will be available during another decode round
             in.position(position);
-            state.bufferDecoding(headerLength + readAmount);
             return null;
         }
-        BufferUtils.put(buf, in, readAmount);
-        if (buf.position() < header.getSize()) {
-            state.continueDecoding();
+        // get the chunk from our input
+        byte[] chunk = Arrays.copyOfRange(in.array(), in.position(), in.position() + length);
+        if (log.isTraceEnabled()) {
+            log.trace("Read chunkSize: {}, length: {}, chunk: {}", readChunkSize, length, Hex.encodeHexString(chunk));
+        }
+        // move the position
+        in.skip(length);
+        // put the chunk into the packet
+        buf.put(chunk);
+        if (buf.hasRemaining()) {
+            log.trace("Packet is incomplete ({},{})", buf.remaining(), buf.limit());
             return null;
         }
-        if (buf.position() > header.getSize()) {
-            log.warn("Packet size expanded from {} to {} ({})", new Object[] { (header.getSize()), buf.position(), header });
-        }
+        // flip so we can read / decode the packet data inot a message
         buf.flip();
         try {
             final IRTMPEvent message = decodeMessage(conn, packet.getHeader(), buf);
-            message.setHeader(packet.getHeader());
+            if (log.isTraceEnabled()) {
+                log.trace("Decoded message: {}", message);
+            }
             // flash will send an earlier time stamp when resetting a video stream with a new key frame. To avoid dropping it,
             // we give it the minimal increment since the last message. To avoid relative time stamps being mis-computed, we
             // don't reset the header we stored.
@@ -339,13 +316,13 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
                 rtmp.setReadChunkSize(chunkSizeMsg.getSize());
             } else if (message instanceof Abort) {
                 log.debug("Abort packet detected");
-                // The client is aborting a message; reset the packet because the next chunk on that stream will start a new packet.
+                // client is aborting a message, reset the packet because the next chunk will start a new packet
                 Abort abort = (Abort) message;
-                rtmp.setLastReadPacket(abort.getChannelId(), null);
                 packet = null;
+                rtmp.setLastReadPacket(abort.getChannelId(), packet);
             }
             // collapse the time stamps on the last packet so that it works right for chunk type 3 later
-            lastHeader = rtmp.getLastReadHeader(channelId);
+            Header lastHeader = rtmp.getLastReadHeader(channelId);
             lastHeader.setTimerBase(header.getTimer());
         } finally {
             rtmp.setLastReadPacket(channelId, null);
@@ -356,43 +333,55 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
     /**
      * Decodes packet header.
      * 
+     * @param chh
+     *            chunk header
+     * @param state
+     *            RTMP decode state
      * @param in
      *            Input IoBuffer
-     * @param lastHeader
-     *            Previous header
+     * @param rtmp
+     *            RTMP object to get last header
      * @return Decoded header
      */
-    public Header decodeHeader(IoBuffer in, Header lastHeader) {
+    public Header decodeHeader(ChunkHeader chh, RTMPDecodeState state, IoBuffer in, RTMP rtmp) {
         if (log.isTraceEnabled()) {
-            log.trace("decodeHeader - lastHeader: {} buffer: {}", lastHeader, in);
+            //log.trace("decodeHeader - chh: {} input: {}", chh, Hex.encodeHexString(Arrays.copyOfRange(in.array(), in.position(), in.limit())));
+            log.trace("decodeHeader - chh: {}", chh);
         }
-        byte headerByte = in.get();
-        int headerValue;
-        int byteCount = 1;
-        if ((headerByte & 0x3f) == 0) {
-            // two byte header
-            headerValue = (headerByte & 0xff) << 8 | (in.get() & 0xff);
-            byteCount = 2;
-        } else if ((headerByte & 0x3f) == 1) {
-            // three byte header
-            headerValue = (headerByte & 0xff) << 16 | (in.get() & 0xff) << 8 | (in.get() & 0xff);
-            byteCount = 3;
-        } else {
-            // single byte header
-            headerValue = headerByte & 0xff;
-            byteCount = 1;
+        final int remaining = in.remaining();
+        final int channelId = chh.getChannelId();
+        final byte headerSize = chh.getFormat();
+        Header lastHeader = rtmp.getLastReadHeader(channelId);
+        if (log.isTraceEnabled()) {
+            log.trace("lastHeader: {}", lastHeader);
         }
-        final int channelId = RTMPUtils.decodeChannelId(headerValue, byteCount);
-        final int headerSize = RTMPUtils.decodeHeaderSize(headerValue, byteCount);
-        Header header = new Header();
-        header.setChannelId(channelId);
+        // got a non-new header for a channel which has no last-read header
         if (headerSize != HEADER_NEW && lastHeader == null) {
-            log.error("Last header null not new, headerSize: {}, channelId {}", headerSize, channelId);
-            // this will trigger an error status, which in turn will disconnect the "offending" flash player
-            // preventing a memory leak and bringing the whole server to its knees
+            String detail = String.format("Last header null: %s, channelId %s", Header.HeaderType.values()[headerSize], channelId);
+            log.debug("{}", detail);
+            // if the op prefers to exit or kill the connection, we should allow based on configuration param
+            if (closeOnHeaderError) {
+                // this will trigger an error status, which in turn will disconnect the "offending" flash player
+                // preventing a memory leak and bringing the whole server to its knees
+                throw new ProtocolException(detail);
+            } else {
+                // we need to skip the current channel data and continue until a new header is sent
+                return null;
+            }
+        }
+        int headerLength = RTMPUtils.getHeaderLength(headerSize);
+        headerLength += chh.getSize() - 1;
+        if (log.isTraceEnabled()) {
+            log.trace("headerLength: {}", headerLength);
+        }
+        if (remaining < headerLength) {
+            log.trace("Header too small (hlen: {}), buffering. remaining: {}", headerLength, remaining);
+            state.bufferDecoding(headerLength);
             return null;
         }
         int timeValue;
+        Header header = new Header();
+        header.setChannelId(channelId);
         switch (headerSize) {
             case HEADER_NEW:
                 // an absolute time value
@@ -417,8 +406,7 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
                     timeValue = (int) (in.getUnsignedInt() & Integer.MAX_VALUE);
                     header.setExtendedTimestamp(timeValue);
                 } else if (timeValue == 0 && header.getDataType() == TYPE_AUDIO_DATA) {
-                    // header.setIsGarbage(true);
-                    log.trace("Audio with zero delta; setting to garbage; ChannelId: {}; DataType: {}; HeaderSize: {}", new Object[] { header.getChannelId(), header.getDataType(), headerSize });
+                    log.trace("Audio with zero delta; ChannelId: {}; DataType: {}; HeaderSize: {}", new Object[] { header.getChannelId(), header.getDataType(), headerSize });
                 }
                 header.setTimerBase(lastHeader.getTimerBase());
                 header.setTimerDelta(timeValue);
@@ -433,8 +421,7 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
                     timeValue = (int) (in.getUnsignedInt() & Integer.MAX_VALUE);
                     header.setExtendedTimestamp(timeValue);
                 } else if (timeValue == 0 && header.getDataType() == TYPE_AUDIO_DATA) {
-                    // header.setIsGarbage(true);
-                    log.trace("Audio with zero delta; setting to garbage; ChannelId: {}; DataType: {}; HeaderSize: {}", new Object[] { header.getChannelId(), header.getDataType(), headerSize });
+                    log.trace("Audio with zero delta; ChannelId: {}; DataType: {}; HeaderSize: {}", new Object[] { header.getChannelId(), header.getDataType(), headerSize });
                 }
                 header.setTimerBase(lastHeader.getTimerBase());
                 header.setTimerDelta(timeValue);
@@ -452,8 +439,7 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
                 }
                 break;
             default:
-                log.error("Unexpected header size: {}", headerSize);
-                return null;
+                throw new ProtocolException(String.format("Unexpected header size: %s", headerSize));
         }
         log.trace("CHUNK, D, {}, {}", header, headerSize);
         return header;
@@ -474,17 +460,6 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
         IRTMPEvent message;
         byte dataType = header.getDataType();
         switch (dataType) {
-            case TYPE_INVOKE:
-                message = decodeInvoke(conn.getEncoding(), in);
-                break;
-            case TYPE_NOTIFY:
-                log.trace("Sending notify on stream id: {}", header.getStreamId());
-                if (header.getStreamId().doubleValue() == 0.0d) {
-                    message = decodeNotify(conn.getEncoding(), in, header);
-                } else {
-                    message = decodeStreamMetadata(in);
-                }
-                break;
             case TYPE_AUDIO_DATA:
                 message = decodeAudioData(in);
                 message.setSourceType(Constants.SOURCE_TYPE_LIVE);
@@ -505,8 +480,27 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
             case TYPE_FLEX_MESSAGE:
                 message = decodeFlexMessage(in);
                 break;
+            case TYPE_INVOKE:
+                message = decodeAction(conn.getEncoding(), in, header);
+                break;
             case TYPE_FLEX_STREAM_SEND:
-                message = decodeFlexStreamSend(in);
+                if (log.isTraceEnabled()) {
+                    log.trace("Decoding flex stream send on stream id: {}", header.getStreamId());
+                }
+                // skip first byte
+                in.get();
+                // decode stream data; slice from the current position
+                message = decodeStreamData(in.slice());
+                break;
+            case TYPE_NOTIFY:
+                if (log.isTraceEnabled()) {
+                    log.trace("Decoding notify on stream id: {}", header.getStreamId());
+                }
+                if (header.getStreamId().doubleValue() != 0.0d) {
+                    message = decodeStreamData(in);
+                } else {
+                    message = decodeAction(conn.getEncoding(), in, header);
+                }
                 break;
             case TYPE_PING:
                 message = decodePing(in);
@@ -531,6 +525,8 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
                 message = decodeUnknown(dataType, in);
                 break;
         }
+        // add the header to the message
+        message.setHeader(header);
         return message;
     }
 
@@ -562,6 +558,9 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
 
     /** {@inheritDoc} */
     public Unknown decodeUnknown(byte dataType, IoBuffer in) {
+        if (log.isDebugEnabled()) {
+            log.debug("decodeUnknown: {}", dataType);
+        }
         return new Unknown(dataType, in);
     }
 
@@ -625,6 +624,7 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
      * @param in
      *            input buffer
      * @param input
+     *            Input object to be processed
      */
     protected void doDecodeSharedObject(SharedObjectMessage so, IoBuffer in, Input input) {
         // Parse request body
@@ -698,86 +698,18 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
         }
     }
 
-    /** {@inheritDoc} */
-    public Notify decodeNotify(Encoding encoding, IoBuffer in) {
-        return decodeNotify(encoding, in, null);
-    }
-
     /**
-     * Decode a Notify.
+     * Decode the 'action' for a supplied an Invoke.
      * 
      * @param encoding
-     *            encoding
+     *            AMF encoding
      * @param in
-     *            input buffer
+     *            buffer
      * @param header
-     * @return decoded notify result
+     *            data header
+     * @return notify
      */
-    public Notify decodeNotify(Encoding encoding, IoBuffer in, Header header) {
-        Notify notify = new Notify();
-        int start = in.position();
-        Input input;
-        // for response, the action string and invokeId is always encoded as AMF0 we use the first byte to decide which encoding to use
-        byte tmp = in.get();
-        in.position(start);
-        if (encoding == Encoding.AMF3 && tmp == AMF.TYPE_AMF3_OBJECT) {
-            input = new org.red5.io.amf3.Input(in);
-            ((org.red5.io.amf3.Input) input).enforceAMF3();
-        } else {
-            input = new org.red5.io.amf.Input(in);
-        }
-        // get the action
-        String action = Deserializer.deserialize(input, String.class);
-        if (log.isTraceEnabled()) {
-            log.trace("Action: {} stream id: {}", action, header.getStreamId());
-        }
-        // throw a runtime exception if there is no action
-        if (action != null) {
-            // TODO Handle NetStream.send? Where and how?
-            if (header != null && header.getStreamId().doubleValue() != 0.0d && !isStreamCommand(action)) {
-                // don't decode "NetStream.send" requests
-                in.position(start);
-                notify.setData(in.asReadOnlyBuffer());
-                return notify;
-            }
-            if (header == null || header.getStreamId().doubleValue() == 0.0d) {
-                int invokeId = Deserializer.<Number> deserialize(input, Number.class).intValue();
-                if (invokeId != 0) {
-                    throw new RuntimeException("Notify invoke / transaction id was non-zero");
-                }
-            }
-            // now go back to the actual encoding to decode parameters
-            if (encoding == Encoding.AMF3) {
-                input = new org.red5.io.amf3.Input(in);
-                ((org.red5.io.amf3.Input) input).enforceAMF3();
-            } else {
-                input = new org.red5.io.amf.Input(in);
-            }
-            // get / set the parameters if there any
-            Object[] params = handleParameters(in, notify, input);
-            // determine service information
-            final int dotIndex = action.lastIndexOf('.');
-            String serviceName = (dotIndex == -1) ? null : action.substring(0, dotIndex);
-            // pull off the prefixes since java doesn't allow this on a method name
-            if (serviceName != null && (serviceName.startsWith("@") || serviceName.startsWith("|"))) {
-                serviceName = serviceName.substring(1);
-            }
-            String serviceMethod = (dotIndex == -1) ? action : action.substring(dotIndex + 1, action.length());
-            // pull off the prefixes since java doesnt allow this on a method name
-            if (serviceMethod.startsWith("@") || serviceMethod.startsWith("|")) {
-                serviceMethod = serviceMethod.substring(1);
-            }
-            Call call = new Call(serviceName, serviceMethod, params);
-            notify.setCall(call);
-            return notify;
-        } else {
-            //TODO replace this with something better as time permits
-            throw new RuntimeException("Action was null");
-        }
-    }
-
-    /** {@inheritDoc} */
-    public Invoke decodeInvoke(Encoding encoding, IoBuffer in) {
+    private Invoke decodeAction(Encoding encoding, IoBuffer in, Header header) {
         // for response, the action string and invokeId is always encoded as AMF0 we use the first byte to decide which encoding to use
         in.mark();
         byte tmp = in.get();
@@ -791,41 +723,36 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
         }
         // get the action
         String action = Deserializer.deserialize(input, String.class);
-        if (log.isTraceEnabled()) {
-            log.trace("Action {}", action);
-        }
-        // throw a runtime exception if there is no action
-        if (action != null) {
-            Invoke invoke = new Invoke();
-            invoke.setTransactionId(Deserializer.<Number> deserialize(input, Number.class).intValue());
-            // now go back to the actual encoding to decode parameters
-            if (encoding == Encoding.AMF3) {
-                input = new org.red5.io.amf3.Input(in);
-                ((org.red5.io.amf3.Input) input).enforceAMF3();
-            } else {
-                input = new org.red5.io.amf.Input(in);
-            }
-            // get / set the parameters if there any
-            Object[] params = in.hasRemaining() ? handleParameters(in, invoke, input) : new Object[0];
-            // determine service information
-            final int dotIndex = action.lastIndexOf('.');
-            String serviceName = (dotIndex == -1) ? null : action.substring(0, dotIndex);
-            // pull off the prefixes since java doesnt allow this on a method name
-            if (serviceName != null && (serviceName.startsWith("@") || serviceName.startsWith("|"))) {
-                serviceName = serviceName.substring(1);
-            }
-            String serviceMethod = (dotIndex == -1) ? action : action.substring(dotIndex + 1, action.length());
-            // pull off the prefixes since java doesn't allow this on a method name
-            if (serviceMethod.startsWith("@") || serviceMethod.startsWith("|")) {
-                serviceMethod = serviceMethod.substring(1);
-            }
-            PendingCall call = new PendingCall(serviceName, serviceMethod, params);
-            invoke.setCall(call);
-            return invoke;
-        } else {
-            // TODO replace this with something better as time permits
+        if (action == null) {
             throw new RuntimeException("Action was null");
         }
+        if (log.isTraceEnabled()) {
+            log.trace("Action: {}", action);
+        }
+        // instance the invoke
+        Invoke invoke = new Invoke();
+        // set the transaction id
+        invoke.setTransactionId(Deserializer.<Number> deserialize(input, Number.class).intValue());
+        // reset and decode parameters
+        input.reset();
+        // get / set the parameters if there any
+        Object[] params = in.hasRemaining() ? handleParameters(in, invoke, input) : new Object[0];
+        // determine service information
+        final int dotIndex = action.lastIndexOf('.');
+        String serviceName = (dotIndex == -1) ? null : action.substring(0, dotIndex);
+        // pull off the prefixes since java doesn't allow this on a method name
+        if (serviceName != null && (serviceName.startsWith("@") || serviceName.startsWith("|"))) {
+            serviceName = serviceName.substring(1);
+        }
+        String serviceMethod = (dotIndex == -1) ? action : action.substring(dotIndex + 1, action.length());
+        // pull off the prefixes since java doesnt allow this on a method name
+        if (serviceMethod.startsWith("@") || serviceMethod.startsWith("|")) {
+            serviceMethod = serviceMethod.substring(1);
+        }
+        // create the pending call for invoke
+        PendingCall call = new PendingCall(serviceName, serviceMethod, params);
+        invoke.setCall(call);
+        return invoke;
     }
 
     /**
@@ -883,96 +810,151 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
     }
 
     /**
-     * Decodes stream meta data, to include onMetaData, onCuePoint, and onFI.
+     * Decodes stream data, to include onMetaData, onCuePoint, and onFI.
      * 
      * @param in
      *            input buffer
      * @return Notify
      */
     @SuppressWarnings("unchecked")
-    public Notify decodeStreamMetadata(IoBuffer in) {
-        Encoding encoding = ((RTMPConnection) Red5.getConnectionLocal()).getEncoding();
-        Input input = null;
-        // check the encoding, if its AMF3 check to see if first byte is set to AMF0
-        byte amfVersion = 0x00;
-        if (encoding == Encoding.AMF3) {
-            in.mark();
-            amfVersion = in.get();
-            in.reset();
+    public Notify decodeStreamData(IoBuffer in) {
+        if (log.isDebugEnabled()) {
+            log.debug("decodeStreamData");
         }
-        // make a pre-emptive copy of the incoming buffer here to prevent issues that occur fairly often
-        IoBuffer copy = in.duplicate();
-        if (encoding == Encoding.AMF0 || amfVersion != AMF.TYPE_AMF3_OBJECT) {
-            input = new org.red5.io.amf.Input(copy);
-        } else {
-            org.red5.io.amf3.Input.RefStorage refStorage = new org.red5.io.amf3.Input.RefStorage();
-            input = new org.red5.io.amf3.Input(copy, refStorage);
+        // our result is a notify
+        Notify ret = null;
+        // check the encoding, if its AMF3 check to see if first byte is set to AMF0
+        Encoding encoding = ((RTMPConnection) Red5.getConnectionLocal()).getEncoding();
+        log.trace("Encoding: {}", encoding);
+        // set mark
+        in.mark();
+        // create input using AMF0 to start with
+        Input input = new org.red5.io.amf.Input(in);
+        if (encoding == Encoding.AMF3) {
+            log.trace("Client indicates its using AMF3");
         }
         //get the first datatype
         byte dataType = input.readDataType();
+        log.debug("Data type: {}", dataType);
         if (dataType == DataTypes.CORE_STRING) {
-            String setData = input.readString();
-            if ("@setDataFrame".equals(setData)) {
+            String action = input.readString();
+            if ("@setDataFrame".equals(action)) {
                 // get the second datatype
                 byte dataType2 = input.readDataType();
                 log.debug("Dataframe method type: {}", dataType2);
                 String onCueOrOnMeta = input.readString();
                 // get the params datatype
                 byte object = input.readDataType();
-                log.debug("Dataframe params type: {}", object);
-                Map<Object, Object> params;
-                if (object == DataTypes.CORE_MAP) {
-                    // the params are sent as a Mixed-Array. Required to support the RTMP publish provided by ffmpeg/xuggler
-                    params = (Map<Object, Object>) input.readMap();
-                } else {
-                    // read the params as a standard object
-                    params = (Map<Object, Object>) input.readObject();
+                if (object == DataTypes.CORE_SWITCH) {
+                    log.trace("Switching decoding to AMF3");
+                    input = new org.red5.io.amf3.Input(in);
+                    ((org.red5.io.amf3.Input) input).enforceAMF3();
+                    // re-read data type after switching decode
+                    object = input.readDataType();
                 }
-                log.debug("Dataframe: {} params: {}", onCueOrOnMeta, params.toString());
-                IoBuffer buf = IoBuffer.allocate(1024);
+                log.debug("Dataframe params type: {}", object);
+                Map<Object, Object> params = Collections.EMPTY_MAP;
+                if (object == DataTypes.CORE_MAP) {
+                    // the params are sent as a Mixed-Array. Required to support the RTMP publish provided by ffmpeg
+                    params = (Map<Object, Object>) input.readMap();
+                } else if (object == DataTypes.CORE_ARRAY) {
+                    params = (Map<Object, Object>) input.readArray(Object[].class);
+                } else if (object == DataTypes.CORE_STRING) {
+                    // decode the string and drop-in as first map entry since we dont know how its encoded
+                    String str = input.readString();
+                    log.debug("String params: {}", str);
+                    params = new HashMap<>();
+                    params.put("0", str);
+                    //} else if (object == DataTypes.CORE_OBJECT) {
+                    //    params = (Map<Object, Object>) input.readObject();
+                } else {
+                    try {
+                        // read the params as a standard object
+                        params = (Map<Object, Object>) input.readObject();
+                    } catch (Exception e) {
+                        log.warn("Dataframe decode error", e);
+                        params = Collections.EMPTY_MAP;
+                    }
+                }
+                if (log.isDebugEnabled()) {
+                    log.debug("Dataframe: {} params: {}", onCueOrOnMeta, params.toString());
+                }
+                IoBuffer buf = IoBuffer.allocate(64);
                 buf.setAutoExpand(true);
                 Output out = new Output(buf);
                 out.writeString(onCueOrOnMeta);
                 out.writeMap(params);
                 buf.flip();
-                Notify ret = new Notify(buf);
-                ret.setAction(onCueOrOnMeta);
-                return ret;
-            } else if ("onFI".equals(setData)) {
-                // the onFI request contains 2 items relative to the publishing client application
-                // sd = system date (12-07-2011)
-                // st = system time (09:11:33.387)
-                byte object = input.readDataType();
-                log.debug("onFI params type: {}", object);
-                if (log.isDebugEnabled()) {
-                    Map<Object, Object> params;
-                    if (object == DataTypes.CORE_MAP) {
-                        // the params are sent as a Mixed-Array
-                        params = (Map<Object, Object>) input.readMap();
-                    } else {
-                        // read the params as a standard object
-                        params = (Map<Object, Object>) input.readObject();
-                    }
-                    log.debug("onFI params: {}", params.toString());
-                }
+                // instance a notify with action
+                ret = new Notify(buf, onCueOrOnMeta);
             } else {
-                log.info("stream send: {}", setData);
-                if (log.isDebugEnabled()) {
-                    byte object = input.readDataType();
-                    log.debug("Params type: {}", object);
-                    if (object == DataTypes.CORE_MAP) {
-                        Map<Object, Object> params = (Map<Object, Object>) input.readMap();
-                        log.debug("Params: {}", params.toString());
-                    } else {
-                        log.debug("The unknown request was did not provide a parameter map");
-                    }
+                byte object = input.readDataType();
+                if (object == DataTypes.CORE_SWITCH) {
+                    log.trace("Switching decoding to AMF3");
+                    input = new org.red5.io.amf3.Input(in);
+                    ((org.red5.io.amf3.Input) input).enforceAMF3();
+                    // re-read data type after switching decode
+                    object = input.readDataType();
                 }
+                // onFI
+                // the onFI request contains 2 items relative to the publishing client application
+                // sd = system date (12-07-2011) st = system time (09:11:33.387)
+                log.info("Stream send: {}", action);
+                Map<Object, Object> params = Collections.EMPTY_MAP;
+                log.debug("Params type: {}", object);
+                if (object == DataTypes.CORE_MAP) {
+                    params = (Map<Object, Object>) input.readMap();
+                    if (log.isDebugEnabled()) {
+                        log.debug("Map params: {}", params.toString());
+                    }
+                } else if (object == DataTypes.CORE_ARRAY) {
+                    params = (Map<Object, Object>) input.readArray(Object[].class);
+                    if (log.isDebugEnabled()) {
+                        log.debug("Array params: {}", params);
+                    }
+                } else if (object == DataTypes.CORE_STRING) {
+                    String str = input.readString();
+                    if (log.isDebugEnabled()) {
+                        log.debug("String params: {}", str);
+                    }
+                    params = new HashMap<>();
+                    params.put("0", str);
+                } else if (object == DataTypes.CORE_OBJECT) {
+                    params = (Map<Object, Object>) input.readObject();
+                    if (log.isDebugEnabled()) {
+                        log.debug("Object params: {}", params);
+                    }
+                } else if (log.isDebugEnabled()) {
+                    log.debug("Stream send did not provide a parameter map");
+                }
+                // need to debug this further
+                /*
+                IoBuffer buf = IoBuffer.allocate(64);
+                buf.setAutoExpand(true);
+                Output out = null;
+                if (encoding == Encoding.AMF3) {
+                    out = new org.red5.io.amf3.Output(buf);
+                } else {
+                    out = new Output(buf);
+                }
+                out.writeString(action);
+                out.writeMap(params);
+                buf.flip();
+                // instance a notify with action
+                ret = new Notify(buf, action);
+                */
+                // go back to the beginning
+                in.reset();
+                // instance a notify with action
+                ret = new Notify(in.asReadOnlyBuffer(), action);
             }
-            Notify toReturn = new Notify(in.asReadOnlyBuffer());
-            toReturn.setAction(setData);
-            return toReturn;
+        } else {
+            // go back to the beginning
+            in.reset();
+            // instance a notify
+            ret = new Notify(in.asReadOnlyBuffer());
         }
-        return new Notify(in.asReadOnlyBuffer());
+        return ret;
     }
 
     /**
@@ -983,6 +965,9 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
      * @return FlexMessage event
      */
     public FlexMessage decodeFlexMessage(IoBuffer in) {
+        if (log.isDebugEnabled()) {
+            log.debug("decodeFlexMessage");
+        }
         // TODO: Unknown byte, probably encoding as with Flex SOs?
         byte flexByte = in.get();
         log.trace("Flex byte: {}", flexByte);
@@ -996,7 +981,7 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
         msg.setTransactionId(transactionId);
         Object[] params = new Object[] {};
         if (in.hasRemaining()) {
-            ArrayList<Object> paramList = new ArrayList<Object>();
+            ArrayList<Object> paramList = new ArrayList<>();
             final Object obj = Deserializer.deserialize(input, Object.class);
             if (obj != null) {
                 paramList.add(obj);
@@ -1004,8 +989,8 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
             while (in.hasRemaining()) {
                 // Check for AMF3 encoding of parameters
                 byte objectEncodingType = in.get();
-                in.position(in.position() - 1);
                 log.debug("Object encoding: {}", objectEncodingType);
+                in.position(in.position() - 1);
                 switch (objectEncodingType) {
                     case AMF.TYPE_AMF3_OBJECT:
                     case AMF3.TYPE_VECTOR_NUMBER:
@@ -1043,12 +1028,14 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
         return msg;
     }
 
-    public Notify decodeFlexStreamSend(IoBuffer in) {
-        // remove the first byte
-        in.get();
-        // copy remaining to pos 0, reset mark, move to pos 0
-        in.compact();
-        return new FlexStreamSend(in.asReadOnlyBuffer());
+    /**
+     * Sets whether or not a header error on any channel should result in a closed connection.
+     * 
+     * @param closeOnHeaderError
+     *            true to close on header decode errors
+     */
+    public void setCloseOnHeaderError(boolean closeOnHeaderError) {
+        this.closeOnHeaderError = closeOnHeaderError;
     }
 
     /**
@@ -1058,6 +1045,7 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
      *            Action to check
      * @return true if passed action is a reserved stream method, false otherwise
      */
+    @SuppressWarnings("unused")
     private boolean isStreamCommand(String action) {
         switch (StreamAction.getEnum(action)) {
             case CREATE_STREAM:
@@ -1089,7 +1077,7 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
      */
     private Object[] handleParameters(IoBuffer in, Notify notify, Input input) {
         Object[] params = new Object[] {};
-        List<Object> paramList = new ArrayList<Object>();
+        List<Object> paramList = new ArrayList<>();
         final Object obj = Deserializer.deserialize(input, Object.class);
         if (obj instanceof Map) {
             // Before the actual parameters we sometimes (connect) get a map of parameters, this is usually null, but if set should be

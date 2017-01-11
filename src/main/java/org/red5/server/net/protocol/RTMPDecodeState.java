@@ -1,5 +1,5 @@
 /*
- * RED5 Open Source Flash Server - https://github.com/Red5/
+ * RED5 Open Source Media Server - https://github.com/Red5/
  * 
  * Copyright 2006-2016 by respective authors (see below). All rights reserved.
  * 
@@ -24,11 +24,6 @@ package org.red5.server.net.protocol;
 public class RTMPDecodeState {
 
     /**
-     * Session id to which this decoding state belongs.
-     */
-    public String sessionId;
-
-    /**
      * Decoding finished successfully state constant.
      */
     public static byte DECODER_OK = 0x00;
@@ -44,6 +39,11 @@ public class RTMPDecodeState {
     public static byte DECODER_BUFFER = 0x02;
 
     /**
+     * Session id to which this decoding state belongs.
+     */
+    public final String sessionId;
+
+    /**
      * Classes like the RTMP state object will extend this marker interface.
      */
     private int decoderBufferAmount;
@@ -52,6 +52,11 @@ public class RTMPDecodeState {
      * Current decoder state, decoder is stopped by default.
      */
     private byte decoderState = DECODER_OK;
+
+    /**
+     * Names for the states.
+     */
+    private static final String[] names = new String[]{"Ok", "Continue", "Buffer"};
 
     public RTMPDecodeState(String sessionId) {
         this.sessionId = sessionId;
@@ -126,20 +131,12 @@ public class RTMPDecodeState {
         return sessionId;
     }
 
-    /**
-     * @param sessionId
-     *            the sessionId to set
-     */
-    public void setSessionId(String sessionId) {
-        this.sessionId = sessionId;
-    }
-
     /* (non-Javadoc)
      * @see java.lang.Object#toString()
      */
     @Override
     public String toString() {
-        return "RTMPDecodeState [sessionId=" + sessionId + ", decoderState=" + decoderState + ", decoderBufferAmount=" + decoderBufferAmount + "]";
+        return "RTMPDecodeState [sessionId=" + sessionId + ", decoderState=" + names[decoderState] + ", decoderBufferAmount=" + decoderBufferAmount + "]";
     }
 
 }
