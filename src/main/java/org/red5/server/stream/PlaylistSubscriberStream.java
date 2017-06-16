@@ -298,16 +298,21 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
             log.debug("close");
         }
         if (engine != null) {
-            // before or on close we may need to allow the queued messages a chance to clear
-            engine.close();
-            onChange(StreamState.CLOSED);
-            items.clear();
-            // clear jobs
-            if (schedulingService != null && !jobs.isEmpty()) {
-                for (String jobName : jobs) {
-                    schedulingService.removeScheduledJob(jobName);
+            write.lock();
+            try {
+                // before or on close we may need to allow the queued messages a chance to clear
+                engine.close();
+                onChange(StreamState.CLOSED);
+                items.clear();
+                // clear jobs
+                if (schedulingService != null && !jobs.isEmpty()) {
+                    for (String jobName : jobs) {
+                        schedulingService.removeScheduledJob(jobName);
+                    }
+                    jobs.clear();
                 }
-                jobs.clear();
+            } finally {
+                write.unlock();
             }
         }
     }
