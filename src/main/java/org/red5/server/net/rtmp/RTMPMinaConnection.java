@@ -24,6 +24,8 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -35,7 +37,9 @@ import javax.management.StandardMBean;
 import org.apache.mina.core.buffer.IoBuffer;
 import org.apache.mina.core.future.CloseFuture;
 import org.apache.mina.core.future.IoFutureListener;
+import org.apache.mina.core.service.IoProcessor;
 import org.apache.mina.core.session.IoSession;
+import org.apache.mina.core.write.WriteRequestQueue;
 import org.red5.server.api.scope.IScope;
 import org.red5.server.jmx.mxbeans.RTMPMinaConnectionMXBean;
 import org.red5.server.net.rtmp.codec.RTMP;
@@ -80,6 +84,8 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
 
     protected boolean bandwidthDetection = true;
 
+    protected static final ScheduledExecutorService closeSheduleExecutor = Executors.newScheduledThreadPool(32);
+
     /** Constructs a new RTMPMinaConnection. */
     @ConstructorProperties(value = { "persistent" })
     public RTMPMinaConnection() {
@@ -120,26 +126,7 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
             super.close();
             log.debug("IO Session closing: {}", (ioSession != null ? ioSession.isClosing() : null));
             if (ioSession != null && !ioSession.isClosing()) {
-                // set a ref to ourself so that the handler can be notified when close future is done
-                final RTMPMinaConnection self = this;
-                // close now, no flushing, no waiting
-                final CloseFuture future = ioSession.closeNow();
-                log.debug("Connection close future: {}", future);
-                IoFutureListener<CloseFuture> listener = new IoFutureListener<CloseFuture>() {
-                    public void operationComplete(CloseFuture future) {
-                        if (future.isClosed()) {
-                            log.info("Connection is closed: {}", getSessionId());
-                            if (log.isTraceEnabled()) {
-                                log.trace("Session id - local: {} session: {}", getSessionId(), (String) ioSession.removeAttribute(RTMPConnection.RTMP_SESSION_ID));
-                            }
-                            handler.connectionClosed(self);
-                        } else {
-                            log.debug("Connection is not yet closed");
-                        }
-                        future.removeListener(this);
-                    }
-                };
-                future.addListener(listener);
+                forceClose(ioSession);
             }
             log.debug("Connection state: {}", getState());
             if (getStateCode() != RTMP.STATE_DISCONNECTED) {
@@ -301,7 +288,14 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
     /** {@inheritDoc} */
     @Override
     protected void onInactive() {
-        close();
+        executor.execute(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                close();
+            }
+        });
     }
 
     /**
@@ -442,4 +436,150 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
         }
     }
 
+    /**
+     * Force the NioSession to be released and cleaned up.
+     *
+     * @param session
+     */
+    private void forceClose(final IoSession session) {
+        log.warn("Force close - session: {}", session.getId());
+        if (session.containsAttribute("FORCED_CLOSE")) {
+            log.info("Close already forced on this session: {}", session.getId());
+        } else {
+            final Semaphore lock = getLock();
+            if (log.isTraceEnabled()) {
+                log.trace("Write lock wait count: {} closed: {}", lock.getQueueLength(), isClosed());
+            }
+            boolean acquired = false;
+            try {
+                acquired = lock.tryAcquire(100, TimeUnit.MILLISECONDS);
+                if (acquired) {
+                    if (log.isTraceEnabled()) {
+                        log.trace("Closing session");
+                    }
+                    // set flag
+                    session.setAttribute("FORCED_CLOSE", Boolean.TRUE);
+                    session.suspendRead();
+                    cleanSession(session);
+                }
+             } catch (InterruptedException e) {
+                log.warn("Interrupted while waiting for close lock. Session: {}. State: {}", session.getId(), RTMP.states[state.getState()], e);
+                if (log.isInfoEnabled()) {
+                    // further debugging to assist with possible connection problems
+                    log.info("Session id: {} in queue size: {} pending msgs: {} last ping/pong: {}", getSessionId(), currentQueueSize(), getPendingMessages(), getLastPingSentAndLastPongReceivedInterval());
+                    log.info("Available permits - decoder: {} encoder: {}", decoderLock.availablePermits(), encoderLock.availablePermits());
+                }
+                String exMsg = e.getMessage();
+                // if the exception cause is null break out of here to prevent looping until closed
+                if (exMsg == null || exMsg.indexOf("null") >= 0) {
+                    log.debug("Exception closing to connection: {}", this);
+                }
+            } finally {
+                if (acquired) {
+                    lock.release();
+                }
+            }
+        }
+    }
+
+    /**
+     * Close and clean-up the IoSession.
+     *
+     * @param session
+     * @param immediately close without waiting for the write queue to flush
+     */
+    @SuppressWarnings("deprecation")
+    private void cleanSession(final IoSession session) {
+        // clean up
+        final String sessionId = (String) session.getAttribute(RTMPConnection.RTMP_SESSION_ID);
+        if (log.isDebugEnabled()) {
+            log.debug("Forcing close on session: {} id: {}", session.getId(), sessionId);
+            log.debug("Session closing: {}", session.isClosing());
+        }
+        // get the write request queue
+        final WriteRequestQueue writeQueue = session.getWriteRequestQueue();
+        if (writeQueue != null && !writeQueue.isEmpty(session)) {
+            log.debug("Clearing write queue");
+            try {
+                writeQueue.clear(session);
+            } catch (Exception ex) {
+                // clear seems to cause a write to closed session ex in some cases
+                log.warn("Exception clearing write queue for {}", sessionId, ex);
+            }
+        }
+
+        // set a ref to ourself so that the handler can be notified when close future is done
+        final RTMPMinaConnection self = this;
+        // force close the session
+        final CloseFuture future = session.closeNow();
+
+        IoFutureListener<CloseFuture> listener = new IoFutureListener<CloseFuture>() {
+            @SuppressWarnings({ "unchecked", "rawtypes" })
+            public void operationComplete(CloseFuture future) {
+                // now connection should be closed
+                log.debug("Close operation completed {}: {}", sessionId, future.isClosed());
+                future.removeListener(this);
+                String sessionId = (String) ioSession.removeAttribute(RTMPConnection.RTMP_SESSION_ID);
+                if (future.isClosed()) {
+                    log.info("Connection is closed: {}", getSessionId());
+                    if (log.isTraceEnabled()) {
+                        log.trace("Session id - local: {} session: {}", getSessionId(), sessionId);
+                    }
+                    handler.connectionClosed(self);
+                } else {
+                    log.debug("Connection is not yet closed");
+                }
+                for (Object key : session.getAttributeKeys()) {
+                    Object obj = session.getAttribute(key);
+                    log.debug("{}: {}", key, obj);
+                    if (obj != null) {
+                        if (log.isTraceEnabled()) {
+                            log.trace("Attribute: {}", obj.getClass().getName());
+                        }
+                        if (obj instanceof IoProcessor) {
+                            log.debug("Flushing session in processor");
+                            ((IoProcessor) obj).flush(session);
+                            log.debug("Removing session from processor");
+                            ((IoProcessor) obj).remove(session);
+                        } else if (obj instanceof IoBuffer) {
+                            log.debug("Clearing session buffer");
+                            ((IoBuffer) obj).clear();
+                            ((IoBuffer) obj).free();
+                        }
+                    }
+                }
+            }
+        };
+        future.addListener(listener);
+        closeSheduleExecutor.schedule(new CheckCloseFutureJob(future, listener, ioSession), 60, TimeUnit.SECONDS);
+    }
+
+    private class CheckCloseFutureJob implements Runnable
+    {
+        private CloseFuture future;
+        private IoFutureListener<CloseFuture> listener;
+        private IoSession session;
+
+        public CheckCloseFutureJob(CloseFuture future, IoFutureListener<CloseFuture> listener, IoSession session) {
+            this.future = future;
+            this.listener = listener;
+            this.session = session;
+        }
+        @Override
+        public void run()
+        {
+            log.trace("Check session: {}", session);
+            if (session.isActive()) {
+                log.warn("session is Active: {}", session.getId());
+                session.closeNow();
+            }
+            log.trace("Check future: {}, listener: {}", future, listener);
+            if (future != null && listener != null) {
+                future.removeListener(listener);
+                listener = null;
+                future.setClosed();
+                future = null;
+            }
+        }
+    }
 }
