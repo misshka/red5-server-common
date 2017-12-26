@@ -519,13 +519,13 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
                 // now connection should be closed
                 log.debug("Close operation completed {}: {}", sessionId, future.isClosed());
                 future.removeListener(this);
-                String sessionId = (String) ioSession.removeAttribute(RTMPConnection.RTMP_SESSION_ID);
                 if (future.isClosed()) {
                     log.info("Connection is closed: {}", getSessionId());
                     if (log.isTraceEnabled()) {
                         log.trace("Session id - local: {} session: {}", getSessionId(), sessionId);
                     }
                     handler.connectionClosed(self);
+                    ioSession.removeAttribute(RTMPConnection.RTMP_SESSION_ID);
                 } else {
                     log.debug("Connection is not yet closed");
                 }
