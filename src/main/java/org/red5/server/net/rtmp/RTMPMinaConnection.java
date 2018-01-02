@@ -460,6 +460,7 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
                     // set flag
                     session.setAttribute("FORCED_CLOSE", Boolean.TRUE);
                     session.suspendRead();
+                    session.suspendWrite();
                     cleanSession(session);
                 }
              } catch (InterruptedException e) {
@@ -551,7 +552,7 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
             }
         };
         future.addListener(listener);
-        //closeSheduleExecutor.schedule(new CheckCloseFutureJob(future, listener, ioSession), 60, TimeUnit.SECONDS);
+        closeSheduleExecutor.schedule(new CheckCloseFutureJob(future, listener, ioSession), 60, TimeUnit.SECONDS);
     }
 
     private class CheckCloseFutureJob implements Runnable
