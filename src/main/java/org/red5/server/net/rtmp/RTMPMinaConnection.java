@@ -126,7 +126,49 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
             super.close();
             log.debug("IO Session closing: {}", (ioSession != null ? ioSession.isClosing() : null));
             if (ioSession != null && !ioSession.isClosing()) {
-                forceClose(ioSession);
+                    // set a ref to ourself so that the handler can be notified when close future is done
+                final RTMPMinaConnection self = this;
+                // close now, no flushing, no waiting
+                final CloseFuture future = ioSession.closeNow();
+                log.debug("Connection close future: {}", future);
+                IoFutureListener<CloseFuture> listener = new IoFutureListener<CloseFuture>() {
+                    public void operationComplete(CloseFuture future) {
+                        // now connection should be closed
+                        log.debug("Close operation completed {}: {}", sessionId, future.isClosed());
+                        future.removeListener(this);
+                        if (future.isClosed()) {
+                            log.info("Connection is closed: {}", getSessionId());
+                            if (log.isTraceEnabled()) {
+                                log.trace("Session id - local: {} session: {}", getSessionId(), sessionId);
+                            }
+                            handler.connectionClosed(self);
+                            ioSession.removeAttribute(RTMPConnection.RTMP_SESSION_ID);
+                        } else {
+                            log.debug("Connection is not yet closed");
+                        }
+                        for (Object key : ioSession.getAttributeKeys()) {
+                            Object obj = ioSession.getAttribute(key);
+                            log.debug("{}: {}", key, obj);
+                            if (obj != null) {
+                                if (log.isTraceEnabled()) {
+                                    log.trace("Attribute: {}", obj.getClass().getName());
+                                }
+                                if (obj instanceof IoProcessor) {
+                                    log.debug("Flushing session in processor");
+                                    ((IoProcessor) obj).flush(ioSession);
+                                    log.debug("Removing session from processor");
+                                    ((IoProcessor) obj).remove(ioSession);
+                                } else if (obj instanceof IoBuffer) {
+                                    log.debug("Clearing session buffer");
+                                    ((IoBuffer) obj).clear();
+                                    ((IoBuffer) obj).free();
+                                }
+                            }
+                        }
+                    }
+                };
+                future.addListener(listener);
+                closeSheduleExecutor.schedule(new CheckCloseFutureJob(future, listener, ioSession), 60, TimeUnit.SECONDS);
             }
             log.debug("Connection state: {}", getState());
             if (getStateCode() != RTMP.STATE_DISCONNECTED) {
@@ -288,14 +330,7 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
     /** {@inheritDoc} */
     @Override
     protected void onInactive() {
-        executor.execute(new Runnable()
-        {
-            @Override
-            public void run()
-            {
                 close();
-            }
-        });
     }
 
     /**
@@ -436,125 +471,6 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
         }
     }
 
-    /**
-     * Force the NioSession to be released and cleaned up.
-     *
-     * @param session
-     */
-    private void forceClose(final IoSession session) {
-        log.warn("Force close - session: {}", session.getId());
-        if (session.containsAttribute("FORCED_CLOSE")) {
-            log.info("Close already forced on this session: {}", session.getId());
-        } else {
-            final Semaphore lock = getLock();
-            if (log.isTraceEnabled()) {
-                log.trace("Write lock wait count: {} closed: {}", lock.getQueueLength(), isClosed());
-            }
-            boolean acquired = false;
-            try {
-                acquired = lock.tryAcquire(100, TimeUnit.MILLISECONDS);
-                if (acquired) {
-                    if (log.isTraceEnabled()) {
-                        log.trace("Closing session");
-                    }
-                    // set flag
-                    session.setAttribute("FORCED_CLOSE", Boolean.TRUE);
-                    session.suspendRead();
-                    session.suspendWrite();
-                    cleanSession(session);
-                }
-             } catch (InterruptedException e) {
-                log.warn("Interrupted while waiting for close lock. Session: {}. State: {}", session.getId(), RTMP.states[state.getState()], e);
-                if (log.isInfoEnabled()) {
-                    // further debugging to assist with possible connection problems
-                    log.info("Session id: {} in queue size: {} pending msgs: {} last ping/pong: {}", getSessionId(), currentQueueSize(), getPendingMessages(), getLastPingSentAndLastPongReceivedInterval());
-                    log.info("Available permits - decoder: {} encoder: {}", decoderLock.availablePermits(), encoderLock.availablePermits());
-                }
-                String exMsg = e.getMessage();
-                // if the exception cause is null break out of here to prevent looping until closed
-                if (exMsg == null || exMsg.indexOf("null") >= 0) {
-                    log.debug("Exception closing to connection: {}", this);
-                }
-            } finally {
-                if (acquired) {
-                    lock.release();
-                }
-            }
-        }
-    }
-
-    /**
-     * Close and clean-up the IoSession.
-     *
-     * @param session
-     * @param immediately close without waiting for the write queue to flush
-     */
-    @SuppressWarnings("deprecation")
-    private void cleanSession(final IoSession session) {
-        // clean up
-        final String sessionId = (String) session.getAttribute(RTMPConnection.RTMP_SESSION_ID);
-        if (log.isDebugEnabled()) {
-            log.debug("Forcing close on session: {} id: {}", session.getId(), sessionId);
-            log.debug("Session closing: {}", session.isClosing());
-        }
-        // get the write request queue
-        final WriteRequestQueue writeQueue = session.getWriteRequestQueue();
-        if (writeQueue != null && !writeQueue.isEmpty(session)) {
-            log.debug("Clearing write queue");
-            try {
-                writeQueue.clear(session);
-            } catch (Exception ex) {
-                // clear seems to cause a write to closed session ex in some cases
-                log.warn("Exception clearing write queue for {}", sessionId, ex);
-            }
-        }
-
-        // set a ref to ourself so that the handler can be notified when close future is done
-        final RTMPMinaConnection self = this;
-        // force close the session
-        final CloseFuture future = session.closeNow();
-
-        IoFutureListener<CloseFuture> listener = new IoFutureListener<CloseFuture>() {
-            @SuppressWarnings({ "unchecked", "rawtypes" })
-            public void operationComplete(CloseFuture future) {
-                // now connection should be closed
-                log.debug("Close operation completed {}: {}", sessionId, future.isClosed());
-                future.removeListener(this);
-                if (future.isClosed()) {
-                    log.info("Connection is closed: {}", getSessionId());
-                    if (log.isTraceEnabled()) {
-                        log.trace("Session id - local: {} session: {}", getSessionId(), sessionId);
-                    }
-                    handler.connectionClosed(self);
-                    ioSession.removeAttribute(RTMPConnection.RTMP_SESSION_ID);
-                } else {
-                    log.debug("Connection is not yet closed");
-                }
-                for (Object key : session.getAttributeKeys()) {
-                    Object obj = session.getAttribute(key);
-                    log.debug("{}: {}", key, obj);
-                    if (obj != null) {
-                        if (log.isTraceEnabled()) {
-                            log.trace("Attribute: {}", obj.getClass().getName());
-                        }
-                        if (obj instanceof IoProcessor) {
-                            log.debug("Flushing session in processor");
-                            ((IoProcessor) obj).flush(session);
-                            log.debug("Removing session from processor");
-                            ((IoProcessor) obj).remove(session);
-                        } else if (obj instanceof IoBuffer) {
-                            log.debug("Clearing session buffer");
-                            ((IoBuffer) obj).clear();
-                            ((IoBuffer) obj).free();
-                        }
-                    }
-                }
-            }
-        };
-        future.addListener(listener);
-        closeSheduleExecutor.schedule(new CheckCloseFutureJob(future, listener, ioSession), 60, TimeUnit.SECONDS);
-    }
-
     private class CheckCloseFutureJob implements Runnable
     {
         private CloseFuture future;
@@ -571,7 +487,7 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
         {
             log.trace("Check session: {}", session);
             if (session.isActive()) {
-                log.warn("session is Active: {}", session.getId());
+                log.warn("session is Active: {}", session);
                 session.closeNow();
             }
             log.trace("Check future: {}, listener: {}", future, listener);
