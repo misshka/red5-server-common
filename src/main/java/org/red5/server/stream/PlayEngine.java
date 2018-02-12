@@ -1590,6 +1590,7 @@ public final class PlayEngine implements IFilter, IPushableConsumer, IPipeConnec
                                         VideoData bufferedFrame = new VideoData(fd.getFrame());
                                         bufferedFrame.setTimestamp(body.getTimestamp());
                                         rtmpMessage = RTMPMessage.build(bufferedFrame);
+                                        fd = null;
                                     }
                                 } else if (frameDropper.getState() == IFrameDropper.SEND_BUFFERED_KEYFRAME) {
                                     VideoData bufferedFrame = new VideoData(videoCodec.getKeyframe());
