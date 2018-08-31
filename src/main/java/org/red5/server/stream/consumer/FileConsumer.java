@@ -506,6 +506,11 @@ public class FileConsumer implements Constants, IPushableConsumer, IPipeConnecti
         }
         // clear file ref
         file = null;
+        try {
+            destroy();
+        } catch (Exception e) {
+            log.warn("Failed destroy on uninit", e);
+        }
     }
 
     /**
@@ -552,6 +557,8 @@ public class FileConsumer implements Constants, IPushableConsumer, IPipeConnecti
                 }
             } else {
                 // clear the data, since its too old
+				log.debug("Current timestamp {} less last written timestamp {}. See in code!", tmpTs, lastWrittenTs);
+				// TODO We should writes all slices may be? Even if they are in wrong order ffmpeg and red5 play such files properly
                 queued.dispose();
             }
         }
