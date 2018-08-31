@@ -24,8 +24,6 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,9 +35,7 @@ import javax.management.StandardMBean;
 import org.apache.mina.core.buffer.IoBuffer;
 import org.apache.mina.core.future.CloseFuture;
 import org.apache.mina.core.future.IoFutureListener;
-import org.apache.mina.core.service.IoProcessor;
 import org.apache.mina.core.session.IoSession;
-import org.apache.mina.core.write.WriteRequestQueue;
 import org.red5.server.api.scope.IScope;
 import org.red5.server.jmx.mxbeans.RTMPMinaConnectionMXBean;
 import org.red5.server.net.rtmp.codec.RTMP;
@@ -84,8 +80,6 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
 
     protected boolean bandwidthDetection = true;
 
-    protected static final ScheduledExecutorService closeSheduleExecutor = Executors.newScheduledThreadPool(32);
-
     /** Constructs a new RTMPMinaConnection. */
     @ConstructorProperties(value = { "persistent" })
     public RTMPMinaConnection() {
@@ -126,49 +120,26 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
             super.close();
             log.debug("IO Session closing: {}", (ioSession != null ? ioSession.isClosing() : null));
             if (ioSession != null && !ioSession.isClosing()) {
-                    // set a ref to ourself so that the handler can be notified when close future is done
+                // set a ref to ourself so that the handler can be notified when close future is done
                 final RTMPMinaConnection self = this;
                 // close now, no flushing, no waiting
                 final CloseFuture future = ioSession.closeNow();
                 log.debug("Connection close future: {}", future);
                 IoFutureListener<CloseFuture> listener = new IoFutureListener<CloseFuture>() {
                     public void operationComplete(CloseFuture future) {
-                        // now connection should be closed
-                        log.debug("Close operation completed {}: {}", sessionId, future.isClosed());
-                        future.removeListener(this);
                         if (future.isClosed()) {
                             log.info("Connection is closed: {}", getSessionId());
                             if (log.isTraceEnabled()) {
-                                log.trace("Session id - local: {} session: {}", getSessionId(), sessionId);
+                                log.trace("Session id - local: {} session: {}", getSessionId(), (String) ioSession.removeAttribute(RTMPConnection.RTMP_SESSION_ID));
                             }
                             handler.connectionClosed(self);
-                            ioSession.removeAttribute(RTMPConnection.RTMP_SESSION_ID);
                         } else {
                             log.debug("Connection is not yet closed");
                         }
-                        for (Object key : ioSession.getAttributeKeys()) {
-                            Object obj = ioSession.getAttribute(key);
-                            log.debug("{}: {}", key, obj);
-                            if (obj != null) {
-                                if (log.isTraceEnabled()) {
-                                    log.trace("Attribute: {}", obj.getClass().getName());
-                                }
-                                if (obj instanceof IoProcessor) {
-                                    log.debug("Flushing session in processor");
-                                    ((IoProcessor) obj).flush(ioSession);
-                                    log.debug("Removing session from processor");
-                                    ((IoProcessor) obj).remove(ioSession);
-                                } else if (obj instanceof IoBuffer) {
-                                    log.debug("Clearing session buffer");
-                                    ((IoBuffer) obj).clear();
-                                    ((IoBuffer) obj).free();
-                                }
-                            }
-                        }
+                        future.removeListener(this);
                     }
                 };
                 future.addListener(listener);
-                closeSheduleExecutor.schedule(new CheckCloseFutureJob(future, listener, ioSession), 60, TimeUnit.SECONDS);
             }
             log.debug("Connection state: {}", getState());
             if (getStateCode() != RTMP.STATE_DISCONNECTED) {
@@ -330,7 +301,7 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
     /** {@inheritDoc} */
     @Override
     protected void onInactive() {
-                close();
+        close();
     }
 
     /**
@@ -471,32 +442,4 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
         }
     }
 
-    private class CheckCloseFutureJob implements Runnable
-    {
-        private CloseFuture future;
-        private IoFutureListener<CloseFuture> listener;
-        private IoSession session;
-
-        public CheckCloseFutureJob(CloseFuture future, IoFutureListener<CloseFuture> listener, IoSession session) {
-            this.future = future;
-            this.listener = listener;
-            this.session = session;
-        }
-        @Override
-        public void run()
-        {
-            log.trace("Check session: {}", session);
-            if (session.isActive()) {
-                log.warn("session is Active: {}", session);
-                session.closeNow();
-            }
-            log.trace("Check future: {}, listener: {}", future, listener);
-            if (future != null && listener != null) {
-                future.removeListener(listener);
-                listener = null;
-                future.setClosed();
-                future = null;
-            }
-        }
-    }
 }
