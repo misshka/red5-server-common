@@ -128,9 +128,6 @@ public class RTMPProtocolDecoder implements Constants, IEventDecoder {
                         log.trace("Has decoded object");
                         if (decodedObject != null) {
                             result.add(decodedObject);
-                        } else if (conn.isClosed()) {
-                            log.warn("Cannot continue decoding because connection with sessionId {} is closed", conn.getSessionId());
-                            break;
                         }
                     } else if (state.canContinueDecoding()) {
                         log.trace("Can continue decoding");

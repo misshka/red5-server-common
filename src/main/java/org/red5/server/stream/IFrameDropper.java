@@ -40,12 +40,6 @@ public interface IFrameDropper {
     /** Send keyframes only and switch to SEND_INTERFRAMES later. */
     public static final int SEND_KEYFRAMES_CHECK = 3;
 
-    /** Send buffered keyframe only. */
-    public static final int SEND_BUFFERED_KEYFRAME = 4;
-
-    /** Send buffered interframes only. */
-    public static final int SEND_BUFFERED_INTERFRAMES = 5;
-
     /**
      * Checks if a message may be sent to the subscriber.
      * 
@@ -53,8 +47,15 @@ public interface IFrameDropper {
      *            the message to check
      * @param pending
      *            the number of pending messages
-	 * @return <pre>true</pre> if the packet may be sent, otherwise
-	 *         <pre>false</pre>
+     * @return <pre>
+     * true
+     * </pre>
+     * 
+     *         if the packet may be sent, otherwise
+     * 
+     *         <pre>
+     * false
+     * </pre>
      */
     boolean canSendPacket(RTMPMessage message, long pending);
 
@@ -74,14 +75,6 @@ public interface IFrameDropper {
      */
     void sendPacket(RTMPMessage message);
 
-	/**
-	 * Notify that a message has been skipped.
-	 *
-	 * @param message
-	 * 			the message that was skipped
-	 */
-	void skipPacket(RTMPMessage message);
-
     /** Reset the frame dropper. */
     void reset();
 
@@ -92,54 +85,5 @@ public interface IFrameDropper {
      *            the state to reset the frame dropper to
      */
     void reset(int state);
-
-    /**
-	 * Gets frame dropper current state.
-	 *
-	 * @return current state.
-	 */
-    int getState();
-
-	/**
-	 * Gets index of current sending buffered interframe
-	 *
-	 * @return index of current sending buffered interframe
-	 */
-	int getBufferedInterframeIdx();
-
-	/**
-	 * Gets and increments index of current sending interbuffered frame
-	 *
-	 * @return index of current sending buffered interframe
-	 */
-    int getAndIncrementBufferedInterframeIdx();
-
-	/**
-	 * Gets duration of time when frames was dropped.
-	 *
-	 * @return duration in milliseconds.
-	 */
-	int getDroppedGapDuration();
-
-	/**
-	 * Gets timestamp of last dropped frame
-	 *
-	 * @return timestamp.
-	 */
-    int getLastDropTimestamp();
-
-	/**
-	 * Update timestamp of last dropped frame
-	 *
-	 * @param timestamp timestamp
-	 */
-    void updateLastDropTimestamp(int timestamp);
-
-	/**
-	 * Checks whether there are dropped frames
-	 * 
-	 * @return
-	 */
-    boolean hasDroppedPackets();
 
 }
