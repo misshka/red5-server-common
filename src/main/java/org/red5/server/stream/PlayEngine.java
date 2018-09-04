@@ -1517,7 +1517,7 @@ public final class PlayEngine implements IFilter, IPushableConsumer, IPipeConnec
                                         sendInsufficientBandwidthStatus(currentItem);
                                         nextCheckBufferUnderrun = now + bufferCheckInterval;
                                     }
-                                    videoFrameDropper.dropPacket(rtmpMessage);
+                                    frameDropper.dropPacket(rtmpMessage);
                                     return;
                                 }
                                 // we are ok to send, check if we should send buffered frame

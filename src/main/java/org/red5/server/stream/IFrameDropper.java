@@ -58,7 +58,6 @@ public interface IFrameDropper {
      * </pre>
      */
     boolean canSendPacket(RTMPMessage message, long pending);
-
     /**
      * Notify that a packet has been dropped.
      * 
@@ -75,8 +74,15 @@ public interface IFrameDropper {
      */
     void sendPacket(RTMPMessage message);
 
-    /** Reset the frame dropper. */
-    void reset();
+	/**
+	 * Notify that a message has been skipped.
+	 *
+	 * @param message
+	 * 			the message that was skipped
+	 */
+	void skipPacket(RTMPMessage message);
+	/** Reset the frame dropper. */
+	void reset();
 
     /**
      * Reset the frame dropper to a given state.
