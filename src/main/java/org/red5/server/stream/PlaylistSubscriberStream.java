@@ -36,7 +36,6 @@ import org.red5.server.api.stream.IPlayItem;
 import org.red5.server.api.stream.IPlaylistController;
 import org.red5.server.api.stream.IPlaylistSubscriberStream;
 import org.red5.server.api.stream.IStreamAwareScopeHandler;
-import org.red5.server.api.stream.IStreamCapableConnection;
 import org.red5.server.api.stream.OperationNotSupportedException;
 import org.red5.server.api.stream.StreamState;
 import org.slf4j.Logger;
@@ -130,6 +129,16 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
      */
     protected long bytesSent = 0;
 
+    /**
+     * see PlayEngine.maxPendingVideoFrames
+     */
+    private int maxPendingVideoFrames = 10;
+
+    /**
+     * see PlayEngine.maxSequentialPendingVideoFrames
+     */
+    private int maxSequentialPendingVideoFrames = 10;
+
     /** Constructs a new PlaylistSubscriberStream. */
     public PlaylistSubscriberStream() {
         defaultController = new SimplePlaylistController();
@@ -142,6 +151,10 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
      */
     PlayEngine createEngine(ISchedulingService schedulingService, IConsumerService consumerService, IProviderService providerService) {
         engine = new PlayEngine.Builder(this, schedulingService, consumerService, providerService).build();
+        // set the max pending video frames to the play engine
+        engine.setMaxPendingVideoFrames(maxPendingVideoFrames);
+        // set the max sequential pending video frames to the play engine
+        engine.setMaxSequentialPendingVideoFrames(maxSequentialPendingVideoFrames);
         return engine;
     }
 
@@ -173,50 +186,48 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
 
     /** {@inheritDoc} */
     public void start() {
-        write.lock();
-        try {
-            IStreamCapableConnection conn = getConnection();
-            //ensure the play engine exists
-            if (engine == null && conn != null && conn.isConnected()) {
-                IScope scope = getScope();
-                if (scope != null) {
-                    IContext ctx = scope.getContext();
-                    if (ctx.hasBean(ISchedulingService.BEAN_NAME)) {
-                        schedulingService = (ISchedulingService) ctx.getBean(ISchedulingService.BEAN_NAME);
-                    } else {
-                        //try the parent
-                        schedulingService = (ISchedulingService) scope.getParent().getContext().getBean(ISchedulingService.BEAN_NAME);
-                    }
-                    IConsumerService consumerService = null;
-                    if (ctx.hasBean(IConsumerService.KEY)) {
-                        consumerService = (IConsumerService) ctx.getBean(IConsumerService.KEY);
-                    } else {
-                        //try the parent
-                        consumerService = (IConsumerService) scope.getParent().getContext().getBean(IConsumerService.KEY);
-                    }
-                    IProviderService providerService = null;
-                    if (ctx.hasBean(IProviderService.BEAN_NAME)) {
-                        providerService = (IProviderService) ctx.getBean(IProviderService.BEAN_NAME);
-                    } else {
-                        //try the parent
-                        providerService = (IProviderService) scope.getParent().getContext().getBean(IProviderService.BEAN_NAME);
-                    }
-                    engine = new PlayEngine.Builder(this, schedulingService, consumerService, providerService).build();
+        //ensure the play engine exists
+        if (engine == null) {
+            IScope scope = getScope();
+            if (scope != null) {
+                IContext ctx = scope.getContext();
+                if (ctx.hasBean(ISchedulingService.BEAN_NAME)) {
+                    schedulingService = (ISchedulingService) ctx.getBean(ISchedulingService.BEAN_NAME);
                 } else {
-                    throw new IllegalStateException("Scope was null on start playing");
+                    //try the parent
+                    schedulingService = (ISchedulingService) scope.getParent().getContext().getBean(ISchedulingService.BEAN_NAME);
                 }
+                IConsumerService consumerService = null;
+                if (ctx.hasBean(IConsumerService.KEY)) {
+                    consumerService = (IConsumerService) ctx.getBean(IConsumerService.KEY);
+                } else {
+                    //try the parent
+                    consumerService = (IConsumerService) scope.getParent().getContext().getBean(IConsumerService.KEY);
+                }
+                IProviderService providerService = null;
+                if (ctx.hasBean(IProviderService.BEAN_NAME)) {
+                    providerService = (IProviderService) ctx.getBean(IProviderService.BEAN_NAME);
+                } else {
+                    //try the parent
+                    providerService = (IProviderService) scope.getParent().getContext().getBean(IProviderService.BEAN_NAME);
+                }
+                engine = new PlayEngine.Builder(this, schedulingService, consumerService, providerService).build();
+            } else {
+                throw new IllegalStateException("Scope was null on start playing");
             }
-            //set buffer check interval
-            engine.setBufferCheckInterval(bufferCheckInterval);
-            //set underrun trigger
-            engine.setUnderrunTrigger(underrunTrigger);
-            // Start playback engine
-            engine.start();
-            // Notify subscribers on start
-            onChange(StreamState.STARTED);
-        } finally {
-            write.unlock();
         }
+        //set buffer check interval
+        engine.setBufferCheckInterval(bufferCheckInterval);
+        //set underrun trigger
+        engine.setUnderrunTrigger(underrunTrigger);
+        // set the max pending video frames to the play engine
+        engine.setMaxPendingVideoFrames(maxPendingVideoFrames);
+        // set the max sequential pending video frames to the play engine
+        engine.setMaxSequentialPendingVideoFrames(maxSequentialPendingVideoFrames);
+        // Start playback engine
+        engine.start();
+        // Notify subscribers on start
+        onChange(StreamState.STARTED);
     }
 
     /** {@inheritDoc} */
@@ -304,29 +315,24 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
         if (log.isDebugEnabled()) {
             log.debug("close");
         }
-        write.lock();
-        try {
-            if (engine != null) {
-                // before or on close we may need to allow the queued messages a chance to clear
-                engine.close();
-                onChange(StreamState.CLOSED);
-                items.clear();
-                // clear jobs
-                if (schedulingService != null && !jobs.isEmpty()) {
-                    for (String jobName : jobs) {
-                        schedulingService.removeScheduledJob(jobName);
-                    }
-                    jobs.clear();
+        if (engine != null) {
+            // before or on close we may need to allow the queued messages a chance to clear
+            engine.close();
+            onChange(StreamState.CLOSED);
+            items.clear();
+            // clear jobs
+            if (schedulingService != null && !jobs.isEmpty()) {
+                for (String jobName : jobs) {
+                    schedulingService.removeScheduledJob(jobName);
                 }
+                jobs.clear();
             }
-        } finally {
-            write.unlock();
         }
     }
 
     /** {@inheritDoc} */
     public boolean isPaused() {
-        return state == StreamState.PAUSED;
+        return state.get() == StreamState.PAUSED;
     }
 
     /** {@inheritDoc} */
@@ -644,13 +650,14 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
      * {@inheritDoc}
      */
     public void onChange(final StreamState state, final Object... changed) {
-        Notifier notifier = null;
+        final IConnection conn = Red5.getConnectionLocal();
         IStreamAwareScopeHandler handler = getStreamAwareHandler();
+        Notifier notifier = null;
         switch (state) {
             case SEEK:
                 //notifies subscribers on seek
                 if (handler != null) {
-                    notifier = new Notifier(this, handler) {
+                    notifier = new Notifier(this, handler, conn) {
                         public void execute(ISchedulingService service) {
                             //make sure those notified have the correct connection
                             Red5.setConnectionLocal(conn);
@@ -671,11 +678,11 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
                 }
                 break;
             case PAUSED:
-                //set the paused state
-                this.setState(StreamState.PAUSED);
-                //notifies subscribers on pause
+                // set the paused state
+                setState(StreamState.PAUSED);
+                // notifies subscribers on pause
                 if (handler != null) {
-                    notifier = new Notifier(this, handler) {
+                    notifier = new Notifier(this, handler, conn) {
                         public void execute(ISchedulingService service) {
                             //make sure those notified have the correct connection
                             Red5.setConnectionLocal(conn);
@@ -696,17 +703,17 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
                 }
                 break;
             case RESUMED:
-                //resume playing
-                this.setState(StreamState.PLAYING);
-                //notifies subscribers on resume
+                // resume playing
+                setState(StreamState.PLAYING);
+                // notifies subscribers on resume
                 if (handler != null) {
-                    notifier = new Notifier(this, handler) {
+                    notifier = new Notifier(this, handler, conn) {
                         public void execute(ISchedulingService service) {
-                            //make sure those notified have the correct connection
+                            // make sure those notified have the correct connection
                             Red5.setConnectionLocal(conn);
-                            //get item being played
+                            // get item being played
                             IPlayItem item = (IPlayItem) changed[0];
-                            //playback position
+                            // playback position
                             int position = (Integer) changed[1];
                             try {
                                 handler.streamPlayItemResume(stream, item, position);
@@ -721,15 +728,15 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
                 }
                 break;
             case PLAYING:
-                //notifies subscribers on play
+                // notifies subscribers on play
                 if (handler != null) {
-                    notifier = new Notifier(this, handler) {
+                    notifier = new Notifier(this, handler, conn) {
                         public void execute(ISchedulingService service) {
-                            //make sure those notified have the correct connection
+                            // make sure those notified have the correct connection
                             Red5.setConnectionLocal(conn);
-                            //get item being played
+                            // get item being played
                             IPlayItem item = (IPlayItem) changed[0];
-                            //is it a live broadcast
+                            // is it a live broadcast
                             boolean isLive = (Boolean) changed[1];
                             try {
                                 handler.streamPlayItemPlay(stream, item, isLive);
@@ -744,11 +751,11 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
                 }
                 break;
             case CLOSED:
-                //notifies subscribers on close
+                // notifies subscribers on close
                 if (handler != null) {
-                    notifier = new Notifier(this, handler) {
+                    notifier = new Notifier(this, handler, conn) {
                         public void execute(ISchedulingService service) {
-                            //make sure those notified have the correct connection
+                            // make sure those notified have the correct connection
                             Red5.setConnectionLocal(conn);
                             try {
                                 handler.streamSubscriberClose(stream);
@@ -763,11 +770,11 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
                 }
                 break;
             case STARTED:
-                //notifies subscribers on start
+                // notifies subscribers on start
                 if (handler != null) {
-                    notifier = new Notifier(this, handler) {
+                    notifier = new Notifier(this, handler, conn) {
                         public void execute(ISchedulingService service) {
-                            //make sure those notified have the correct connection
+                            // make sure those notified have the correct connection
                             Red5.setConnectionLocal(conn);
                             try {
                                 handler.streamSubscriberStart(stream);
@@ -782,11 +789,11 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
                 }
                 break;
             case STOPPED:
-                //set the stopped state
-                this.setState(StreamState.STOPPED);
+                // set the stopped state
+                setState(StreamState.STOPPED);
                 //notifies subscribers on stop
                 if (handler != null) {
-                    notifier = new Notifier(this, handler) {
+                    notifier = new Notifier(this, handler, conn) {
                         public void execute(ISchedulingService service) {
                             //make sure those notified have the correct connection
                             Red5.setConnectionLocal(conn);
@@ -805,7 +812,7 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
                 }
                 break;
             case END:
-                //notified by the play engine when the current item reaches the end
+                // notified by the play engine when the current item reaches the end
                 nextItem();
                 break;
             default:
@@ -813,8 +820,6 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
                 log.warn("Unhandled change: {}", state);
         }
         if (notifier != null) {
-            IConnection conn = Red5.getConnectionLocal();
-            notifier.setConnection(conn);
             scheduleOnceJob(notifier);
         }
     }
@@ -863,6 +868,22 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
         return (buffered * 100.0) / buffer;
     }
 
+    /**
+     * @param maxPendingVideoFrames
+     *            the maxPendingVideoFrames to set
+     */
+    public void setMaxPendingVideoFrames(int maxPendingVideoFrames) {
+        this.maxPendingVideoFrames = maxPendingVideoFrames;
+    }
+
+    /**
+     * @param maxSequentialPendingVideoFrames
+     *            the maxSequentialPendingVideoFrames to set
+     */
+    public void setMaxSequentialPendingVideoFrames(int maxSequentialPendingVideoFrames) {
+        this.maxSequentialPendingVideoFrames = maxSequentialPendingVideoFrames;
+    }
+
     /** {@inheritDoc} */
     public String scheduleOnceJob(IScheduledJob job) {
         String jobName = schedulingService.addScheduledOnceJob(10, job);
@@ -886,20 +907,17 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
      */
     public class Notifier implements IScheduledJob {
 
-        IPlaylistSubscriberStream stream;
+        final IPlaylistSubscriberStream stream;
 
-        IStreamAwareScopeHandler handler;
+        final IStreamAwareScopeHandler handler;
 
-        IConnection conn;
+        final IConnection conn;
 
-        public Notifier(IPlaylistSubscriberStream stream, IStreamAwareScopeHandler handler) {
+        public Notifier(IPlaylistSubscriberStream stream, IStreamAwareScopeHandler handler, IConnection conn) {
             log.trace("Notifier - stream: {} handler: {}", stream, handler);
+            this.conn = conn;
             this.stream = stream;
             this.handler = handler;
-        }
-
-        public void setConnection(IConnection conn) {
-            this.conn = conn;
         }
 
         public void execute(ISchedulingService service) {
