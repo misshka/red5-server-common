@@ -46,18 +46,17 @@ public interface IFrameDropper {
     /** Send buffered interframes only. */
     public static final int SEND_BUFFERED_INTERFRAMES = 5;
 
-	/**
-	 * Checks if a message may be sent to the subscriber.
-	 * 
-	 * @param message
-	 * 			the message to check
-	 * @param pending
-	 * 			the number of pending messages
+    /**
+     * Checks if a message may be sent to the subscriber.
+     * 
+     * @param message
+     *            the message to check
+     * @param pending
+     *            the number of pending messages
 	 * @return <pre>true</pre> if the packet may be sent, otherwise
 	 *         <pre>false</pre>
-	 */
-	boolean canSendPacket(RTMPMessage message, long pending);
-
+     */
+    boolean canSendPacket(RTMPMessage message, long pending);
     /**
      * Notify that a packet has been dropped.
      * 
@@ -81,7 +80,6 @@ public interface IFrameDropper {
 	 * 			the message that was skipped
 	 */
 	void skipPacket(RTMPMessage message);
-
 	/** Reset the frame dropper. */
 	void reset();
 

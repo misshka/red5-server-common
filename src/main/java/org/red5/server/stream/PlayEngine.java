@@ -163,7 +163,7 @@ public final class PlayEngine implements IFilter, IPushableConsumer, IPipeConnec
     /**
      * State machine for video frame dropping in live streams
      */
-    private IFrameDropper frameDropper = new VideoFrameDropper();
+    private final IFrameDropper frameDropper = new FrameDropper();
 
     private int timestampOffset = 0;
 
@@ -225,7 +225,7 @@ public final class PlayEngine implements IFilter, IPushableConsumer, IPipeConnec
     /**
      * List of pending operations
      */
-    private ConcurrentLinkedQueue<Runnable> pendingOperations = new ConcurrentLinkedQueue<Runnable>();
+    private final ConcurrentLinkedQueue<Runnable> pendingOperations = new ConcurrentLinkedQueue<Runnable>();
 
     // Keep count of dropped packets so we can log every so often.
     private long droppedPacketsCount = 0;
@@ -432,9 +432,9 @@ public final class PlayEngine implements IFilter, IPushableConsumer, IPipeConnec
                         }
                     }
                     // subscribe to stream (ClientBroadcastStream.onPipeConnectionEvent)
-                    in.subscribe(this, null);
                     // execute the processes to get Live playback setup
                     playLive();
+                    in.subscribe(this, null);
                 } else {
                     sendStreamNotFoundStatus(currentItem);
                     throw new StreamNotFoundException(itemName);
@@ -762,7 +762,7 @@ public final class PlayEngine implements IFilter, IPushableConsumer, IPipeConnec
                     }
                 } else {
                     subscriberStream.onChange(StreamState.RESUMED, currentItem, position);
-                    frameDropper.reset(VideoFrameDropper.SEND_KEYFRAMES_CHECK);
+                    frameDropper.reset(IFrameDropper.SEND_KEYFRAMES_CHECK);
                 }
                 break;
             default:
@@ -1528,12 +1528,17 @@ public final class PlayEngine implements IFilter, IPushableConsumer, IPipeConnec
                                 if (!frameDropper.canSendPacket(rtmpMessage, pendingVideos)) {
                                     // drop frame as it depends on other frames that were dropped before
                                     droppedPacketsCount++;
+                                    if (pendingVideos != 0) {
+                                        frameDropper.skipPacket(rtmpMessage);
+                                        return;
+                                    }
                                     if (log.isInfoEnabled() && shouldLogPacketDrop()) {
                                         log.info("Frame dropper says to drop packet. sessionId={} stream={} count={}",
                                                 sessionId, subscriberStream.getBroadcastStreamPublishName(), droppedPacketsCount);
                                     }
+                                    frameDropper.reset(IFrameDropper.SEND_BUFFERED_INTERFRAMES);
                                     return;
-                                }
+                                } else {
                                 // increment the number of times we had pending video frames sequentially
                                 if (pendingVideos > 1) {
                                     numSequentialPendingVideoFrames++;
@@ -1560,18 +1565,40 @@ public final class PlayEngine implements IFilter, IPushableConsumer, IPipeConnec
                                     frameDropper.dropPacket(rtmpMessage);
                                     return;
                                 }
-                                // we are ok to send, check if we should send buffered frame
-                                if (bufferedInterframeIdx > -1) {
-                                    IVideoStreamCodec.FrameData fd = videoCodec.getInterframe(bufferedInterframeIdx++);
-                                    if (fd != null) {
-                                        VideoData interframe = new VideoData(fd.getFrame());
-                                        interframe.setTimestamp(body.getTimestamp());
-                                        rtmpMessage = RTMPMessage.build(interframe);
-                                    } else {
-                                        // it means that new keyframe was received and we should send current frames instead of buffered
-                                        bufferedInterframeIdx = 0;
-                                    }
                                 }
+
+                                int lastDropTimestamp = frameDropper.getLastDropTimestamp();
+                                /* check if we have buffered frame set newer than lastDropTimestamp.
+                                /* if so - we should start from buffered keyframe and update frameDropper*/
+                                if (frameDropper.hasDroppedPackets() &&
+                                        videoCodec.getKeyframeTimestamp() > lastDropTimestamp) {
+                                    frameDropper.updateLastDropTimestamp(videoCodec.getKeyframeTimestamp());
+                                    frameDropper.reset(IFrameDropper.SEND_BUFFERED_KEYFRAME);
+                                }
+
+                                // we are ok to send, check if we should send buffered frame
+                                if (frameDropper.getState() == IFrameDropper.SEND_BUFFERED_INTERFRAMES) {
+                                    if (frameDropper.getBufferedInterframeIdx() >= videoCodec.getNumInterframes()) {
+                                        frameDropper.reset(IFrameDropper.SEND_ALL);
+                                    } else {
+                                        IVideoStreamCodec.FrameData fd;
+                                        //skip to interframe later then lastDropTimestamp
+                                        do {
+                                            fd = videoCodec.getInterframe(frameDropper.getAndIncrementBufferedInterframeIdx());
+                                        } while (fd.getTimestamp() <= lastDropTimestamp &&
+                                                frameDropper.getBufferedInterframeIdx() <= videoCodec.getNumInterframes());
+                                        VideoData bufferedFrame = new VideoData(fd.getFrame());
+                                        bufferedFrame.setTimestamp(body.getTimestamp());
+                                        rtmpMessage = RTMPMessage.build(bufferedFrame);
+                                        fd = null;
+                                    }
+                                } else if (frameDropper.getState() == IFrameDropper.SEND_BUFFERED_KEYFRAME) {
+                                    VideoData bufferedFrame = new VideoData(videoCodec.getKeyframe());
+                                    bufferedFrame.setTimestamp(body.getTimestamp());
+                                    rtmpMessage = RTMPMessage.build(bufferedFrame);
+                                    frameDropper.reset(IFrameDropper.SEND_BUFFERED_INTERFRAMES);
+                                }
+                                frameDropper.sendPacket(rtmpMessage);
                             }
                         }
                     }
@@ -1587,6 +1614,11 @@ public final class PlayEngine implements IFilter, IPushableConsumer, IPipeConnec
                         }
                         rtmpMessage = RTMPMessage.build(body);
                     } else if (!receiveAudio) {
+                        return;
+                    }
+                    if (!frameDropper.canSendPacket(rtmpMessage, 0)) {
+                        // Drop frame as it depends on other frames that were dropped before.
+                        log.debug("Dropping audio packet because frame dropper says we cant send it");
                         return;
                     }
                 }
