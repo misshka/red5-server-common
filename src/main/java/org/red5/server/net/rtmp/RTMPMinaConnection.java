@@ -39,6 +39,7 @@ import org.apache.mina.core.future.CloseFuture;
 import org.apache.mina.core.future.IoFutureListener;
 import org.apache.mina.core.service.IoProcessor;
 import org.apache.mina.core.session.IoSession;
+import org.red5.server.api.IConnection;
 import org.apache.mina.core.write.WriteRequestQueue;
 import org.red5.server.api.scope.IScope;
 import org.red5.server.jmx.mxbeans.RTMPMinaConnectionMXBean;
@@ -89,7 +90,7 @@ public class RTMPMinaConnection extends RTMPConnection implements RTMPMinaConnec
     /** Constructs a new RTMPMinaConnection. */
     @ConstructorProperties(value = { "persistent" })
     public RTMPMinaConnection() {
-        super(PERSISTENT);
+        super(IConnection.Type.PERSISTENT.name().toLowerCase());
     }
 
     @SuppressWarnings("cast")

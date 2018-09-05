@@ -57,7 +57,6 @@ public interface IFrameDropper {
 	 *         <pre>false</pre>
      */
     boolean canSendPacket(RTMPMessage message, long pending);
-
     /**
      * Notify that a packet has been dropped.
      * 
