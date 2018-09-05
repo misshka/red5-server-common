@@ -142,8 +142,10 @@ public class ReceivedMessageTaskQueue {
             if (log.isTraceEnabled()) {
                 log.trace("DeadlockGuard is started for {}", task);
             }
-            // skip processed packet
-            if (packet.isProcessed()) {
+            if (task.isConnectionDisconnecting()) {
+                log.debug("DeadlockGuard skipping task for closing connection {}", task);
+            } else if (packet.isProcessed()) {
+                // skip processed packet
                 log.debug("DeadlockGuard skipping task for processed packet {}", task);
             } else if (packet.isExpired()) {
                 // try to interrupt thread

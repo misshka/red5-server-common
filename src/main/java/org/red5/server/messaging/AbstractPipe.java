@@ -284,7 +284,9 @@ public abstract class AbstractPipe implements IPipe {
     /**
      * Close the pipe
      */
-    public void close() {
+    public void close()
+    {
+        log.debug("close pipe: {}", this);
         // clean up collections
         if (consumers != null) {
             consumers.clear();
