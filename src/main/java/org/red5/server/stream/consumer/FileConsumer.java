@@ -1,3 +1,30 @@
+
+Skip to content
+
+    Pull requests
+    Issues
+    Marketplace
+    Explore
+
+    @misshka
+
+15
+38
+
+    78
+
+Red5/red5-server-common
+Code
+Issues 1
+Pull requests 1
+Projects 0
+Insights
+red5-server-common/src/main/java/org/red5/server/stream/consumer/FileConsumer.java
+a6e56a3 on Jun 4
+@mondain mondain Merge pull request #62 from bigbluebutton/fix-unordered-packets-in-re…
+@mondain
+@ritzalam
+executable file 604 lines (556 sloc) 22.6 KB
 package org.red5.server.stream.consumer;
 
 import java.io.File;
@@ -434,115 +461,13 @@ public class FileConsumer implements Constants, IPushableConsumer, IPipeConnecti
                 writer.close();
                 writer = null;
             }
-            // close the writer
-            writer.close();
-            writer = null;
-        }
-        // clear file ref
-        path = null;
-        try {
-            destroy();
-        } catch (Exception e) {
-            log.warn("Failed destroy on uninit", e);
-        }
-    }
-
-    /**
-     * Write all the queued items to the writer.
-     */
-    public final void doWrites() {
-        QueuedData[] slice = null;
-        writeLock.lock();
-        try {
-            slice = queue.toArray(new QueuedData[0]);
-            if (queue.removeAll(Arrays.asList(slice))) {
-                log.debug("Queued writes transfered, count: {}", slice.length);
-            }
-        } finally {
-            writeLock.unlock();
-        }
-        // sort
-        Arrays.sort(slice);
-        // write
-        doWrites(slice);
-    }
-
-    /**
-     * Write a slice of the queued items to the writer.
-     * 
-     * @param slice
-     *            set of queued data
-     */
-    public final void doWrites(QueuedData[] slice) {
-        // empty the queue
-        for (QueuedData queued : slice) {
-            int tmpTs = queued.getTimestamp();
-            if (lastWrittenTs <= tmpTs) {
-                if (queued.hasData()) {
-                    // write the data
-                    write(queued);
-                    lastWrittenTs = tmpTs;
-                    // clear the data, because we're done with it
-                    queued.dispose();
-                } else {
-                    if (log.isTraceEnabled()) {
-                        log.trace("Queued data was not available");
-                    }
-                }
-            } else {
-                // clear the data, since its too old
-				log.debug("Current timestamp {} less last written timestamp {}. See in code!", tmpTs, lastWrittenTs);
-				// TODO We should writes all slices may be? Even if they are in wrong order ffmpeg and red5 play such files properly
-                queued.dispose();
-            }
-        }
-        // clear and null-out
-        slice = null;
-    }
-
-    /**
-     * Write incoming data to the file.
-     * 
-     * @param timestamp
-     *            adjusted timestamp
-     * @param msg
-     *            stream data
-     */
-    private final void write(int timestamp, IRTMPEvent msg) {
-        // get data type
-        byte dataType = msg.getDataType();
-        log.debug("Write - timestamp: {} type: {}", timestamp, dataType);
-        // get data bytes
-        IoBuffer data = ((IStreamData<?>) msg).getData();
-        if (data != null) {
-            // if the last message was a reset or we just started, use the header timer
-            if (startTimestamp == -1) {
-                startTimestamp = timestamp;
-                timestamp = 0;
-            } else {
-                timestamp -= startTimestamp;
-            }
-            // create a tag
-            ITag tag = ImmutableTag.build(dataType, timestamp, data, 0);
-            // only allow blank tags if they are of audio type
-            if (tag.getBodySize() > 0 || dataType == ITag.TYPE_AUDIO) {
-                try {
-                    if (timestamp >= 0) {
-                        if (!writer.writeTag(tag)) {
-                            log.warn("Tag was not written");
-                        }
-                    } else {
-                        log.warn("Skipping message with negative timestamp.");
-                    }
-                } catch (IOException e) {
-                    log.error("Error writing tag", e);
-                } finally {
-                    if (data != null) {
-                        data.clear();
-                        data.free();
-                    }
-                }
-            }
+            // clear path ref
+            path = null;
+	    try {
+            	destroy();
+	    } catch (Exception e) {
+	    	log.warn("Failed destroy on uninit", e);
+	    }
         }
     }
 
@@ -708,3 +633,19 @@ public class FileConsumer implements Constants, IPushableConsumer, IPipeConnecti
     }
 
 }
+
+    © 2018 GitHub, Inc.
+    Terms
+    Privacy
+    Security
+    Status
+    Help
+
+    Contact GitHub
+    Pricing
+    API
+    Training
+    Blog
+    About
+
+Press h to open a hovercard with more details.
