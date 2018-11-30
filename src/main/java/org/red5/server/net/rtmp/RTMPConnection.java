@@ -1540,6 +1540,10 @@ public abstract class RTMPConnection extends BaseConnection implements IStreamCa
         droppedMessages.incrementAndGet();
     }
 
+    public long getPacketSequence() {
+        return packetSequence.get();
+    }
+
     /**
      * Returns the current received message queue size.
      * 

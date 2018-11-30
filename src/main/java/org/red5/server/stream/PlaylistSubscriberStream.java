@@ -187,35 +187,49 @@ public class PlaylistSubscriberStream extends AbstractClientStream implements IP
 
     /** {@inheritDoc} */
     public void start() {
-        //ensure the play engine exists
-        if (engine == null) {
-            IScope scope = getScope();
-            if (scope != null) {
-                IContext ctx = scope.getContext();
-                if (ctx.hasBean(ISchedulingService.BEAN_NAME)) {
-                    schedulingService = (ISchedulingService) ctx.getBean(ISchedulingService.BEAN_NAME);
+        write.lock();
+        try {
+            IStreamCapableConnection conn = getConnection();
+            //ensure the play engine exists
+            if (engine == null && conn != null && conn.isConnected()) {
+                IScope scope = getScope();
+                if (scope != null) {
+                    IContext ctx = scope.getContext();
+                    if (ctx.hasBean(ISchedulingService.BEAN_NAME)) {
+                        schedulingService = (ISchedulingService) ctx.getBean(ISchedulingService.BEAN_NAME);
+                    } else {
+                        //try the parent
+                        schedulingService = (ISchedulingService) scope.getParent().getContext().getBean(ISchedulingService.BEAN_NAME);
+                    }
+                    IConsumerService consumerService = null;
+                    if (ctx.hasBean(IConsumerService.KEY)) {
+                        consumerService = (IConsumerService) ctx.getBean(IConsumerService.KEY);
+                    } else {
+                        //try the parent
+                        consumerService = (IConsumerService) scope.getParent().getContext().getBean(IConsumerService.KEY);
+                    }
+                    IProviderService providerService = null;
+                    if (ctx.hasBean(IProviderService.BEAN_NAME)) {
+                        providerService = (IProviderService) ctx.getBean(IProviderService.BEAN_NAME);
+                    } else {
+                        //try the parent
+                        providerService = (IProviderService) scope.getParent().getContext().getBean(IProviderService.BEAN_NAME);
+                    }
+                    engine = new PlayEngine.Builder(this, schedulingService, consumerService, providerService).build();
                 } else {
-                    //try the parent
-                    schedulingService = (ISchedulingService) scope.getParent().getContext().getBean(ISchedulingService.BEAN_NAME);
+                    throw new IllegalStateException("Scope was null on start playing");
                 }
-                IConsumerService consumerService = null;
-                if (ctx.hasBean(IConsumerService.KEY)) {
-                    consumerService = (IConsumerService) ctx.getBean(IConsumerService.KEY);
-                } else {
-                    //try the parent
-                    consumerService = (IConsumerService) scope.getParent().getContext().getBean(IConsumerService.KEY);
-                }
-                IProviderService providerService = null;
-                if (ctx.hasBean(IProviderService.BEAN_NAME)) {
-                    providerService = (IProviderService) ctx.getBean(IProviderService.BEAN_NAME);
-                } else {
-                    //try the parent
-                    providerService = (IProviderService) scope.getParent().getContext().getBean(IProviderService.BEAN_NAME);
-                }
-                engine = new PlayEngine.Builder(this, schedulingService, consumerService, providerService).build();
-            } else {
-                throw new IllegalStateException("Scope was null on start playing");
             }
+            //set buffer check interval
+            engine.setBufferCheckInterval(bufferCheckInterval);
+            //set underrun trigger
+            engine.setUnderrunTrigger(underrunTrigger);
+            // Start playback engine
+            engine.start();
+            // Notify subscribers on start
+            onChange(StreamState.STARTED);
+        } finally {
+            write.unlock();
         }
         //set buffer check interval
         engine.setBufferCheckInterval(bufferCheckInterval);

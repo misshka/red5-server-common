@@ -436,6 +436,11 @@ public class FileConsumer implements Constants, IPushableConsumer, IPipeConnecti
             }
             // clear path ref
             path = null;
+            try {
+                destroy();
+            } catch (Exception e) {
+                log.warn("Failed destroy on uninit", e);
+            }
         }
     }
 

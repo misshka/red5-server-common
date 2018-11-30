@@ -24,6 +24,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.red5.server.api.Red5;
+import org.red5.server.net.rtmp.codec.RTMP;
 import org.red5.server.net.rtmp.message.Packet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -139,6 +140,10 @@ public final class ReceivedMessageTask implements Callable<Packet> {
 
     public Thread getTaskThread() {
         return taskThread;
+    }
+
+    public boolean isConnectionDisconnecting() {
+        return conn.getStateCode() == RTMP.STATE_DISCONNECTED || conn.getStateCode() == RTMP.STATE_DISCONNECTING;
     }
 
     @Override

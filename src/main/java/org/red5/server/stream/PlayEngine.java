@@ -1543,6 +1543,17 @@ public final class PlayEngine implements IFilter, IPushableConsumer, IPipeConnec
                                     } else {
                                         // it means that new keyframe was received and we should send current frames instead of buffered
                                         bufferedInterframeIdx = -1;
+                                        //todo
+//                                        IVideoStreamCodec.FrameData fd;
+//                                        //skip to interframe later then lastDropTimestamp
+//                                        do {
+//                                            fd = videoCodec.getInterframe(frameDropper.getAndIncrementBufferedInterframeIdx());
+//                                        } while (fd.getTimestamp() <= lastDropTimestamp &&
+//                                                frameDropper.getBufferedInterframeIdx() <= videoCodec.getNumInterframes());
+//                                        VideoData bufferedFrame = new VideoData(fd.getFrame());
+//                                        bufferedFrame.setTimestamp(body.getTimestamp());
+//                                        rtmpMessage = RTMPMessage.build(bufferedFrame);
+//                                        fd = null;
                                     }
                                 } else if (frameDropper.getState() == IFrameDropper.SEND_BUFFERED_KEYFRAME) {
                                     VideoData bufferedFrame = new VideoData(videoCodec.getKeyframe());
