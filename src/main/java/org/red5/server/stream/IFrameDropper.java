@@ -80,8 +80,9 @@ public interface IFrameDropper {
 	 * 			the message that was skipped
 	 */
 	void skipPacket(RTMPMessage message);
-	/** Reset the frame dropper. */
-	void reset();
+
+    /** Reset the frame dropper. */
+    void reset();
 
     /**
      * Reset the frame dropper to a given state.

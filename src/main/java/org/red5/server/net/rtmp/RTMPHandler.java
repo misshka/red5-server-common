@@ -301,10 +301,12 @@ public class RTMPHandler extends BaseRTMPHandler {
             log.debug("connect - transaction id: {}", transId);
             // Get parameters passed from client to NetConnection#connection
             final Map<String, Object> params = command.getConnectionParams();
+            log.debug("params: {}", params);
             // Get hostname
             String host = getHostname((String) params.get("tcUrl"));
             // app name as path, but without query string if there is one
             String path = (String) params.get("app");
+            log.debug("path: {}", path);
             if (path.indexOf("?") != -1) {
                 int idx = path.indexOf("?");
                 params.put("queryString", path.substring(idx));
@@ -312,6 +314,7 @@ public class RTMPHandler extends BaseRTMPHandler {
             }
             params.put("path", path);
             // connection setup
+            log.debug("params: {} path: {}", params, path);
             conn.setup(host, path, params);
             try {
                 // Lookup server scope when connected using host and application name

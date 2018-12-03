@@ -49,6 +49,7 @@ public class InMemoryPushPushPipe extends AbstractPipe {
         if (consumer instanceof IPushableConsumer) {
             boolean success = super.subscribe(consumer, paramMap);
             if (log.isDebugEnabled()) {
+                log.debug("pipe: {}", this);
                 log.debug("Consumer subscribe{} {} params: {}", new Object[] { (success ? "d" : " failed"), consumer, paramMap });
             }
             if (success) {
@@ -56,6 +57,7 @@ public class InMemoryPushPushPipe extends AbstractPipe {
             }
             return success;
         } else {
+            log.debug("pipe: {}", this);
             throw new IllegalArgumentException("Non-pushable consumer not supported by PushPushPipe");
         }
     }
@@ -65,6 +67,7 @@ public class InMemoryPushPushPipe extends AbstractPipe {
     public boolean subscribe(IProvider provider, Map<String, Object> paramMap) {
         boolean success = super.subscribe(provider, paramMap);
         if (log.isDebugEnabled()) {
+            log.debug("pipe: {}", this);
             log.debug("Provider subscribe{} {} params: {}", new Object[] { (success ? "d" : " failed"), provider, paramMap });
         }
         if (success) {
@@ -93,12 +96,12 @@ public class InMemoryPushPushPipe extends AbstractPipe {
      */
     public void pushMessage(IMessage message) throws IOException {
         if (log.isDebugEnabled()) {
+            log.debug("pipe: {}, message id: {}", this, message.getMessageID());
             log.debug("pushMessage: {} to {} consumers", message, consumers.size());
         }
         for (IConsumer consumer : consumers) {
             try {
-                IPushableConsumer pcon = (IPushableConsumer) consumer;
-                pcon.pushMessage(this, message);
+                ((IPushableConsumer) consumer).pushMessage(this, message);
             } catch (Throwable t) {
                 if (t instanceof IOException) {
                     throw (IOException) t;

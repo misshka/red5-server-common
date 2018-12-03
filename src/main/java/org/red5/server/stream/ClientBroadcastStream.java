@@ -22,11 +22,17 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.ref.WeakReference;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Calendar;
 import java.util.Collection;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.management.InstanceAlreadyExistsException;
 import javax.management.MBeanServer;
@@ -39,6 +45,7 @@ import org.red5.codec.IAudioStreamCodec;
 import org.red5.codec.IStreamCodecInfo;
 import org.red5.codec.IVideoStreamCodec;
 import org.red5.codec.StreamCodecInfo;
+import org.red5.io.amf.Output;
 import org.red5.server.api.IConnection;
 import org.red5.server.api.Red5;
 import org.red5.server.api.event.IEvent;
@@ -52,6 +59,7 @@ import org.red5.server.api.stream.IStreamAwareScopeHandler;
 import org.red5.server.api.stream.IStreamCapableConnection;
 import org.red5.server.api.stream.IStreamListener;
 import org.red5.server.api.stream.IStreamPacket;
+import org.red5.server.api.stream.StreamState;
 import org.red5.server.jmx.mxbeans.ClientBroadcastStreamMXBean;
 import org.red5.server.messaging.IConsumer;
 import org.red5.server.messaging.IFilter;
@@ -69,6 +77,8 @@ import org.red5.server.net.rtmp.event.IRTMPEvent;
 import org.red5.server.net.rtmp.event.Invoke;
 import org.red5.server.net.rtmp.event.Notify;
 import org.red5.server.net.rtmp.event.VideoData;
+import org.red5.server.net.rtmp.message.Constants;
+import org.red5.server.net.rtmp.message.Header;
 import org.red5.server.net.rtmp.status.Status;
 import org.red5.server.net.rtmp.status.StatusCodes;
 import org.red5.server.stream.message.RTMPMessage;
@@ -78,7 +88,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jmx.export.annotation.ManagedResource;
 
 /**
- * Represents live stream broadcasted from client. As Flash Media Server, Red5 supports recording mode for live streams, that is, broadcasted stream has broadcast mode. It can be either "live" or "record" and latter causes server-side application to record broadcasted stream.
+ * Represents live stream broadcasted from client. As Flash Media Server, Red5 supports recording mode for live streams, that is,
+ * broadcasted stream has broadcast mode. It can be either "live" or "record" and latter causes server-side application to record
+ * broadcasted stream.
  *
  * Note that recorded streams are recorded as FLV files.
  *
@@ -107,12 +119,12 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
     /**
      * Is there need to check video codec?
      */
-    protected boolean checkVideoCodec = false;
+    protected boolean checkVideoCodec;
 
     /**
      * Is there need to check audio codec?
      */
-    protected boolean checkAudioCodec = false;
+    protected boolean checkAudioCodec;
 
     /**
      * Data is sent by chunks, each of them has size
@@ -122,7 +134,7 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
     /**
      * Is this stream still active?
      */
-    protected volatile boolean closed;
+    protected AtomicBoolean closed = new AtomicBoolean(false);
 
     /**
      * Output endpoint that providers use
@@ -167,7 +179,7 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
     /**
      * Recording listener
      */
-    private transient WeakReference<IRecordingListener> recordingListener;
+    protected transient WeakReference<IRecordingListener> recordingListener;
 
     protected long latestTimeStamp = -1;
 
@@ -191,38 +203,36 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
      * Closes stream, unsubscribes provides, sends stoppage notifications and broadcast close notification.
      */
     public void close() {
-        log.debug("Stream close: {}", publishedName);
-        if (closed) {
-            log.debug("{} already closed", publishedName);
-            return;
+        //log.debug("Stream close: {}", publishedName);
+        if (closed.compareAndSet(false, true)) {
+            if (livePipe != null) {
+                livePipe.unsubscribe((IProvider) this);
+            }
+            // if we have a recording listener, inform that this stream is done
+            if (recordingListener != null) {
+                sendRecordStopNotify();
+                notifyRecordingStop();
+                // inform the listener to finish and close
+                recordingListener.get().stop();
+            }
+            sendPublishStopNotify();
+            // TODO: can we send the client something to make sure he stops sending data?
+            if (connMsgOut != null) {
+                connMsgOut.unsubscribe(this);
+            }
+            notifyBroadcastClose();
+            // clear the listener after all the notifications have been sent
+            if (recordingListener != null) {
+                recordingListener.clear();
+            }
+            // clear listeners
+            if (!listeners.isEmpty()) {
+                listeners.clear();
+            }
+            // deregister with jmx
+            unregisterJMX();
+            setState(StreamState.CLOSED);
         }
-        closed = true;
-        if (livePipe != null) {
-            livePipe.unsubscribe((IProvider) this);
-        }
-        // if we have a recording listener, inform that this stream is done
-        if (recordingListener != null) {
-            sendRecordStopNotify();
-            notifyRecordingStop();
-            // inform the listener to finish and close
-            recordingListener.get().stop();
-        }
-        sendPublishStopNotify();
-        // TODO: can we send the client something to make sure he stops sending data?
-        if (connMsgOut != null) {
-            connMsgOut.unsubscribe(this);
-        }
-        notifyBroadcastClose();
-        // clear the listener after all the notifications have been sent
-        if (recordingListener != null) {
-            recordingListener.clear();
-        }
-        // clear listeners
-        if (!listeners.isEmpty()) {
-            listeners.clear();
-        }
-        // deregister with jmx
-        unregisterJMX();
     }
 
     /**
@@ -232,7 +242,7 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
      *            Event to dispatch
      */
     public void dispatchEvent(IEvent event) {
-        if (event instanceof IRTMPEvent && !closed) {
+        if (event instanceof IRTMPEvent && !closed.get()) {
             switch (event.getType()) {
                 case STREAM_CONTROL:
                 case STREAM_DATA:
@@ -244,7 +254,12 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
                         log.error("Class cast exception in event dispatch", e);
                         return;
                     }
-                    int eventTime = -1;
+                    int eventTime = rtmpEvent.getTimestamp();
+                    // verify and / or set source type
+                    if (rtmpEvent.getSourceType() != Constants.SOURCE_TYPE_LIVE) {
+                        rtmpEvent.setSourceType(Constants.SOURCE_TYPE_LIVE);
+                    }
+                    /*
                     if (log.isTraceEnabled()) {
                         // If this is first packet save its timestamp; expect it is
                         // absolute? no matter: it's never used!
@@ -252,9 +267,10 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
                             firstPacketTime = rtmpEvent.getTimestamp();
                             log.trace(String.format("CBS=@%08x: rtmpEvent=%s creation=%s firstPacketTime=%d", System.identityHashCode(this), rtmpEvent.getClass().getSimpleName(), creationTime, firstPacketTime));
                         } else {
-                            log.trace(String.format("CBS=@%08x: rtmpEvent=%s creation=%s firstPacketTime=%d timestamp=%d", System.identityHashCode(this), rtmpEvent.getClass().getSimpleName(), creationTime, firstPacketTime, rtmpEvent.getTimestamp()));
+                            log.trace(String.format("CBS=@%08x: rtmpEvent=%s creation=%s firstPacketTime=%d timestamp=%d", System.identityHashCode(this), rtmpEvent.getClass().getSimpleName(), creationTime, firstPacketTime, eventTime));
                         }
                     }
+                    */
                     //get the buffer only once per call
                     IoBuffer buf = null;
                     if (rtmpEvent instanceof IStreamData && (buf = ((IStreamData<?>) rtmpEvent).getData()) != null) {
@@ -268,6 +284,7 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
                     }
                     //log.trace("Stream codec info: {}", info);
                     if (rtmpEvent instanceof AudioData) {
+                        //log.trace("Audio: {}", eventTime);
                         IAudioStreamCodec audioStreamCodec = null;
                         if (checkAudioCodec) {
                             // dont try to read codec info from 0 length audio packets
@@ -287,9 +304,8 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
                         if (info != null) {
                             info.setHasAudio(true);
                         }
-                        eventTime = rtmpEvent.getTimestamp();
-                        log.trace("Audio: {}", eventTime);
                     } else if (rtmpEvent instanceof VideoData) {
+                        //log.trace("Video: {}", eventTime);
                         IVideoStreamCodec videoStreamCodec = null;
                         if (checkVideoCodec) {
                             videoStreamCodec = VideoCodecFactory.getVideoCodec(buf);
@@ -301,32 +317,31 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
                             videoStreamCodec = codecInfo.getVideoCodec();
                         }
                         if (videoStreamCodec != null) {
-							videoStreamCodec.addData(buf, rtmpEvent.getTimestamp());
+                            videoStreamCodec.addData(buf, eventTime);
                         }
                         if (info != null) {
                             info.setHasVideo(true);
                         }
-                        eventTime = rtmpEvent.getTimestamp();
-                        log.trace("Video: {}", eventTime);
                     } else if (rtmpEvent instanceof Invoke) {
-                        Invoke invokeEvent = (Invoke) rtmpEvent;
-                        log.debug("Invoke action: {}", invokeEvent.getAction());
-                        eventTime = rtmpEvent.getTimestamp();
+                        //Invoke invokeEvent = (Invoke) rtmpEvent;
+                        //log.debug("Invoke action: {}", invokeEvent.getAction());
                         // event / stream listeners will not be notified of invokes
                         return;
                     } else if (rtmpEvent instanceof Notify) {
                         Notify notifyEvent = (Notify) rtmpEvent;
-                        log.debug("Notify action: {}", notifyEvent.getAction());
-                        if (notifyEvent.getAction() != null && notifyEvent.getAction().equals("onMetaData")) {
+                        String action = notifyEvent.getAction();
+                        //if (log.isDebugEnabled()) {
+                        //log.debug("Notify action: {}", action);
+                        //}
+                        if ("onMetaData".equals(action)) {
                             // store the metadata
                             try {
-                                log.debug("Setting metadata");
-                                metaData = notifyEvent.duplicate();
+                                //log.debug("Setting metadata");
+                                setMetaData(notifyEvent.duplicate());
                             } catch (Exception e) {
                                 log.warn("Metadata could not be duplicated for this stream", e);
                             }
                         }
-                        eventTime = rtmpEvent.getTimestamp();
                     }
                     // update last event time
                     if (eventTime > latestTimeStamp) {
@@ -341,7 +356,7 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
                             // create new RTMP message, initialize it and push through pipe
                             RTMPMessage msg = RTMPMessage.build(rtmpEvent, eventTime);
                             livePipe.pushMessage(msg);
-                        } else {
+                        } else if (log.isDebugEnabled()) {
                             log.debug("Live pipe was null, message was not pushed");
                         }
                     } catch (IOException err) {
@@ -363,7 +378,7 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
                     break;
                 default:
                     // ignored event
-                    log.debug("Ignoring event: {}", event.getType());
+                    //log.debug("Ignoring event: {}", event.getType());
             }
         } else {
             log.debug("Event was of wrong type or stream is closed ({})", closed);
@@ -406,7 +421,7 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
      *            Name that used for publishing. Set at client side when begin to broadcast with NetStream#publish.
      */
     public void setPublishedName(String name) {
-        log.debug("setPublishedName: {}", name);
+        //log.debug("setPublishedName: {}", name);
         // a publish name of "false" is a special case, used when stopping a stream
         if (StringUtils.isNotEmpty(name) && !"false".equals(name)) {
             this.publishedName = name;
@@ -497,7 +512,7 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
             try {
                 handler.streamRecordStop(this);
             } catch (Throwable t) {
-                log.error("Error in notifyBroadcastClose", t);
+                log.error("Error in notifyRecordingStop", t);
             }
         }
     }
@@ -514,6 +529,29 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
                 log.error("Error in notifyBroadcastStart", t);
             }
         }
+        // send metadata for creation and start dates
+        IoBuffer buf = IoBuffer.allocate(256);
+        buf.setAutoExpand(true);
+        Output out = new Output(buf);
+        out.writeString("onMetaData");
+        Map<Object, Object> params = new HashMap<>();
+        Calendar cal = GregorianCalendar.getInstance();
+        cal.setTimeInMillis(creationTime);
+        params.put("creationdate", ZonedDateTime.ofInstant(cal.toInstant(), ZoneId.of("UTC")).format(DateTimeFormatter.ISO_INSTANT));
+        cal.setTimeInMillis(startTime);
+        params.put("startdate", ZonedDateTime.ofInstant(cal.toInstant(), ZoneId.of("UTC")).format(DateTimeFormatter.ISO_INSTANT));
+        if (log.isDebugEnabled()) {
+            log.debug("Params: {}", params);
+        }
+        out.writeMap(params);
+        buf.flip();
+        Notify notify = new Notify(buf);
+        notify.setAction("onMetaData");
+        notify.setHeader(new Header());
+        notify.getHeader().setDataType(Notify.TYPE_STREAM_METADATA);
+        notify.getHeader().setStreamId(0);
+        notify.setTimestamp(0);
+        dispatchEvent(notify);
     }
 
     /**
@@ -567,37 +605,37 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
     public void onPipeConnectionEvent(PipeConnectionEvent event) {
         switch (event.getType()) {
             case PROVIDER_CONNECT_PUSH:
-                log.debug("Provider connect");
+                //log.debug("Provider connect");
                 if (event.getProvider() == this && event.getSource() != connMsgOut && (event.getParamMap() == null || !event.getParamMap().containsKey("record"))) {
                     livePipe = (IPipe) event.getSource();
-                    log.debug("Provider: {}", livePipe.getClass().getName());
+                    //log.debug("Provider: {}", livePipe.getClass().getName());
                     for (IConsumer consumer : livePipe.getConsumers()) {
                         subscriberStats.increment();
                     }
                 }
                 break;
             case PROVIDER_DISCONNECT:
-                log.debug("Provider disconnect");
-                if (log.isDebugEnabled() && livePipe != null) {
-                    log.debug("Provider: {}", livePipe.getClass().getName());
-                }
+                //log.debug("Provider disconnect");
+                //if (log.isDebugEnabled() && livePipe != null) {
+                //log.debug("Provider: {}", livePipe.getClass().getName());
+                //}
                 if (livePipe == event.getSource()) {
                     livePipe = null;
                 }
                 break;
             case CONSUMER_CONNECT_PUSH:
-                log.debug("Consumer connect");
+                //log.debug("Consumer connect");
                 IPipe pipe = (IPipe) event.getSource();
-                if (log.isDebugEnabled() && pipe != null) {
-                    log.debug("Consumer: {}", pipe.getClass().getName());
-                }
+                //if (log.isDebugEnabled() && pipe != null) {
+                //log.debug("Consumer: {}", pipe.getClass().getName());
+                //}
                 if (livePipe == pipe) {
                     notifyChunkSize();
                 }
                 subscriberStats.increment();
                 break;
             case CONSUMER_DISCONNECT:
-                log.debug("Consumer disconnect: {}", event.getSource().getClass().getName());
+                //log.debug("Consumer disconnect: {}", event.getSource().getClass().getName());
                 subscriberStats.decrement();
                 break;
             default:
@@ -626,7 +664,7 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
      *             File could not be created/written to
      */
     public void saveAs(String name, boolean isAppend) throws IOException {
-        log.debug("SaveAs - name: {} append: {}", name, isAppend);
+        //log.debug("SaveAs - name: {} append: {}", name, isAppend);
         // get connection to check if client is still streaming
         IStreamCapableConnection conn = getConnection();
         if (conn == null) {
@@ -638,24 +676,24 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
             //IRecordingListener listener = (IRecordingListener) ScopeUtils.getScopeService(conn.getScope(), IRecordingListener.class, RecordingListener.class, false);
             // create a recording listener
             IRecordingListener listener = new RecordingListener();
-            log.debug("Created: {}", listener);
+            //log.debug("Created: {}", listener);
             // initialize the listener
             if (listener.init(conn, name, isAppend)) {
                 // get decoder info if it exists for the stream
                 IStreamCodecInfo codecInfo = getCodecInfo();
-                log.debug("Codec info: {}", codecInfo);
+                //log.debug("Codec info: {}", codecInfo);
                 if (codecInfo instanceof StreamCodecInfo) {
                     StreamCodecInfo info = (StreamCodecInfo) codecInfo;
                     IVideoStreamCodec videoCodec = info.getVideoCodec();
-                    log.debug("Video codec: {}", videoCodec);
+                    //log.debug("Video codec: {}", videoCodec);
                     if (videoCodec != null) {
                         //check for decoder configuration to send
                         IoBuffer config = videoCodec.getDecoderConfiguration();
                         if (config != null) {
-                            log.debug("Decoder configuration is available for {}", videoCodec.getName());
+                            //log.debug("Decoder configuration is available for {}", videoCodec.getName());
                             VideoData videoConf = new VideoData(config.asReadOnlyBuffer());
                             try {
-                                log.debug("Setting decoder configuration for recording");
+                                //log.debug("Setting decoder configuration for recording");
                                 listener.getFileConsumer().setVideoDecoderConfiguration(videoConf);
                             } finally {
                                 videoConf.release();
@@ -665,15 +703,15 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
                         log.debug("Could not initialize stream output, videoCodec is null.");
                     }
                     IAudioStreamCodec audioCodec = info.getAudioCodec();
-                    log.debug("Audio codec: {}", audioCodec);
+                    //log.debug("Audio codec: {}", audioCodec);
                     if (audioCodec != null) {
                         //check for decoder configuration to send
                         IoBuffer config = audioCodec.getDecoderConfiguration();
                         if (config != null) {
-                            log.debug("Decoder configuration is available for {}", audioCodec.getName());
+                            //log.debug("Decoder configuration is available for {}", audioCodec.getName());
                             AudioData audioConf = new AudioData(config.asReadOnlyBuffer());
                             try {
-                                log.debug("Setting decoder configuration for recording");
+                                //log.debug("Setting decoder configuration for recording");
                                 listener.getFileConsumer().setAudioDecoderConfiguration(audioConf);
                             } finally {
                                 audioConf.release();
@@ -708,6 +746,7 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
         StatusMessage startMsg = new StatusMessage();
         startMsg.setBody(publishStatus);
         pushMessage(startMsg);
+        setState(StreamState.PUBLISHING);
     }
 
     /**
@@ -721,6 +760,7 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
         StatusMessage stopMsg = new StatusMessage();
         stopMsg.setBody(stopStatus);
         pushMessage(stopMsg);
+        setState(StreamState.STOPPED);
     }
 
     /**
@@ -797,16 +837,16 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
                         } else {
                             // delete any previously recorded versions of this now "live" stream per
                             // http://livedocs.adobe.com/flashmediaserver/3.0/hpdocs/help.html?content=00000186.html
-                            try {
-                                File file = getRecordFile(scope, publishedName);
-                                if (file != null && file.exists()) {
-                                    if (!file.delete()) {
-                                        log.debug("File was not deleted: {}", file.getAbsoluteFile());
-                                    }
-                                }
-                            } catch (Exception e) {
-                                log.warn("Exception removing previously recorded file", e);
-                            }
+                            //                            try {
+                            //                                File file = getRecordFile(scope, publishedName);
+                            //                                if (file != null && file.exists()) {
+                            //                                    if (!file.delete()) {
+                            //                                        log.debug("File was not deleted: {}", file.getAbsoluteFile());
+                            //                                    }
+                            //                                }
+                            //                            } catch (Exception e) {
+                            //                                log.warn("Exception removing previously recorded file", e);
+                            //                            }
                             // callback for publish start
                             ((IStreamAwareScopeHandler) handler).streamPublishStart(this);
                         }
@@ -826,7 +866,7 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
      * Starts stream, creates pipes, connects
      */
     public void start() {
-        log.info("Stream start: {}", publishedName);
+        //log.info("Stream start: {}", publishedName);
         checkVideoCodec = true;
         checkAudioCodec = true;
         firstPacketTime = -1;
@@ -835,12 +875,12 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
         IConsumerService consumerManager = (IConsumerService) getScope().getContext().getBean(IConsumerService.KEY);
         connMsgOut = consumerManager.getConsumerOutput(this);
         if (connMsgOut != null && connMsgOut.subscribe(this, null)) {
-            setCodecInfo(new StreamCodecInfo());
-            creationTime = System.currentTimeMillis();
-            closed = false;
+            // technically this would be a 'start' time
+            startTime = System.currentTimeMillis();
         } else {
             log.warn("Subscribe failed");
         }
+        setState(StreamState.STARTED);
     }
 
     /** {@inheritDoc} */
@@ -850,7 +890,7 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
         sendStartNotifications(Red5.getConnectionLocal());
         // force recording if set
         if (automaticRecording) {
-            log.debug("Starting automatic recording of {}", publishedName);
+            //log.debug("Starting automatic recording of {}", publishedName);
             try {
                 saveAs(publishedName, false);
             } catch (Exception e) {
@@ -861,7 +901,8 @@ public class ClientBroadcastStream extends AbstractClientStream implements IClie
 
     /** {@inheritDoc} */
     public void stop() {
-        log.info("Stream stop: {}", publishedName);
+        //log.info("Stream stop: {}", publishedName);
+        setState(StreamState.STOPPED);
         stopRecording();
         close();
     }
